@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { X, Building2, Calendar, Clock, FileText, DollarSign, User, BookOpen, Contact2 } from 'lucide-react';
+import { X, Building2, Calendar, Clock, FileText, DollarSign, BookOpen, Contact2 } from 'lucide-react';
 import type { Transaction } from '../../types';
 import { useQuery } from '@tanstack/react-query';
-import { hotelService, bookingService, guestService, contactService } from '../../services/api';
+import { hotelService } from '../../services/api';
 
 interface TransactionModalProps {
   transaction: Transaction;

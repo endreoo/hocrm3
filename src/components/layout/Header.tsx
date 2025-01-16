@@ -1,10 +1,9 @@
-import React from 'react';
 import { Bell, Settings, User, Search, Hotel, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useState } from 'react';
 
 export default function Header() {
-  const { logout, currentUser } = useAuth();
+  const { logout, user } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   return (
@@ -47,8 +46,8 @@ export default function Header() {
               {showUserMenu && (
                 <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg py-1 bg-white ring-1 ring-black ring-opacity-5">
                   <div className="px-4 py-2 text-sm text-gray-700 border-b">
-                    <p className="font-medium">{currentUser?.name}</p>
-                    <p className="text-gray-500">{currentUser?.email}</p>
+                    <p className="font-medium">{user?.name}</p>
+                    <p className="text-gray-500">{user?.email}</p>
                   </div>
                   <button
                     onClick={logout}

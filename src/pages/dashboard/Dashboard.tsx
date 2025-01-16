@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { 
   Building2, Users, BookOpen, DollarSign, 
@@ -35,11 +34,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Hotels</p>
-              <p className="text-2xl font-semibold text-gray-900">
-                {hotelsData?.meta?.total || 0}
-              </p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">
+                Total Hotels: <span className="font-medium">{hotelsData?.total || 0}</span>
+              </span>
             </div>
             <div className="p-3 bg-indigo-100 rounded-full">
               <Building2 className="h-6 w-6 text-indigo-600" />
@@ -72,9 +70,10 @@ export default function Dashboard() {
 
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Guests</p>
-              <p className="text-2xl font-semibold text-gray-900">{guestsData?.meta?.total || 0}</p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">
+                Total Guests: <span className="font-medium">{guestsData?.total || 0}</span>
+              </span>
             </div>
             <div className="p-3 bg-blue-100 rounded-full">
               <Users className="h-6 w-6 text-blue-600" />
@@ -247,7 +246,7 @@ export default function Dashboard() {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {hotelsData?.data.slice(0, 3).map((hotel) => (
+                {(hotelsData?.data || []).slice(0, 3).map((hotel) => (
                   <div key={hotel.id} className="flex items-center justify-between">
                     <div className="flex items-center">
                       <Building2 className="h-5 w-5 text-gray-400 mr-3" />

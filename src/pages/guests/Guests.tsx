@@ -1,30 +1,38 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Users, Filter, ArrowUpDown, Star, History, Mail, Phone } from 'lucide-react';
 import type { Guest } from '../../types';
 import { useQuery } from '@tanstack/react-query';
-import { guestService } from '../../services/api';
+import { guestService, type GuestFilters } from '../../services/api';
 
-const ITEMS_PER_PAGE = 10;
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
 export default function Guests() {
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({
-    name: '',
-    email: '',
-    minBookings: '',
-  });
+  const [pageSize, setPageSize] = useState<typeof PAGE_SIZE_OPTIONS[number]>(20);
+  const [filters, setFilters] = useState<GuestFilters>({});
 
-  const { data: guestsData, isLoading, error } = useQuery({
-    queryKey: ['guests', page, filters],
-    queryFn: () => guestService.getGuests(page, filters),
-    keepPreviousData: true,
-    staleTime: 30000,
+  const { data: guestsData, isLoading, error: queryError } = useQuery({
+    queryKey: ['guests', page, pageSize, filters],
+    queryFn: () => guestService.getGuests(page, { ...filters, limit: pageSize }),
   });
 
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Guest;
     direction: 'asc' | 'desc';
   } | null>(null);
+
+  const handleFilterChange = (key: keyof GuestFilters, value: string) => {
+    if (value === '') {
+      const newFilters = { ...filters };
+      delete newFilters[key];
+      setFilters(newFilters);
+    } else {
+      setFilters((prev: GuestFilters) => ({
+        ...prev,
+        [key]: value
+      }));
+    }
+  };
 
   const handleSort = (key: keyof Guest) => {
     setSortConfig(current => ({
@@ -81,7 +89,7 @@ export default function Guests() {
         </div>
       </div>
 
-      {error && <div className="p-4 text-red-600">Error loading guests. Please try again.</div>}
+      {queryError && <div className="p-4 text-red-600">Error loading guests. Please try again.</div>}
 
       <div className="px-4 py-4 sm:px-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-4">
@@ -89,22 +97,22 @@ export default function Guests() {
             type="text"
             placeholder="Search by name..."
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            value={filters.name}
-            onChange={(e) => setFilters(prev => ({ ...prev, name: e.target.value }))}
+            value={filters.name || ''}
+            onChange={(e) => handleFilterChange('name', e.target.value)}
           />
           <input
             type="email"
             placeholder="Search by email..."
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            value={filters.email}
-            onChange={(e) => setFilters(prev => ({ ...prev, email: e.target.value }))}
+            value={filters.email || ''}
+            onChange={(e) => handleFilterChange('email', e.target.value)}
           />
           <input
             type="number"
             placeholder="Min. number of bookings..."
             className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            value={filters.minBookings}
-            onChange={(e) => setFilters(prev => ({ ...prev, minBookings: e.target.value }))}
+            value={filters.minBookings || ''}
+            onChange={(e) => handleFilterChange('minBookings', e.target.value)}
           />
         </div>
 
@@ -207,11 +215,23 @@ export default function Guests() {
 
         {guestsData && (
           <div className="mt-4 flex items-center justify-between">
-            <div className="text-sm text-gray-700">
-              Showing {((page - 1) * ITEMS_PER_PAGE) + 1} to{' '}
-              {Math.min(page * ITEMS_PER_PAGE, guestsData.meta.total)} of{' '}
-              {guestsData.meta.total} results
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-700">Show</span>
+              <select
+                value={pageSize}
+                onChange={e => setPageSize(Number(e.target.value) as typeof PAGE_SIZE_OPTIONS[number])}
+                className="px-2 py-1 border rounded text-sm"
+              >
+                {PAGE_SIZE_OPTIONS.map(size => (
+                  <option key={size} value={size}>{size}</option>
+                ))}
+              </select>
+              <span className="text-sm text-gray-700">entries</span>
             </div>
+            <span className="text-sm text-gray-600">
+              Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, guestsData?.total || 0)} of{' '}
+              <span className="font-medium">{guestsData?.total || 0}</span> results
+            </span>
             <div className="flex space-x-2">
               <button
                 onClick={() => setPage(p => Math.max(1, p - 1))}
@@ -222,8 +242,8 @@ export default function Guests() {
               </button>
               <button
                 onClick={() => setPage(p => p + 1)}
-                disabled={page >= guestsData.meta.last_page || isLoading}
-                className="px-3 py-1 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={page >= (guestsData?.pages || 1) || isLoading}
+                className="rounded bg-indigo-600 px-3 py-1 text-white disabled:opacity-50"
               >
                 Next
               </button>

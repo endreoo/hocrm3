@@ -1,6 +1,5 @@
-import React from 'react';
+import { User, Mail, Phone, Star, History, Calendar, Building2, ArrowLeft } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { User, Mail, Phone, Star, History, Calendar, Building2, Clock, ArrowLeft } from 'lucide-react';
 import { guestService, bookingService } from '../../services/api';
 import type { Booking } from '../../types';
 

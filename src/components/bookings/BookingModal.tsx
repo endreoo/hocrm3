@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Calendar, User, Building2, Clock, FileText, History, Receipt, TicketCheck, CheckCircle2, AlertTriangle, Ban } from 'lucide-react';
+import { X, Calendar, User, Building2, Clock, FileText, History, Receipt, TicketCheck, CheckCircle2 } from 'lucide-react';
 import type { Booking } from '../../types';
 import { useQuery } from '@tanstack/react-query';
 import { guestService } from '../../services/api';

@@ -318,23 +318,23 @@ export default function TicketModal({ ticket, onClose }: TicketModalProps) {
                       </div>
                     </div>
 
-                    {/* Hotel Card */}
-                    <div className="border rounded-lg relative group hover:border-blue-300 hover:shadow-sm transition-all duration-200 bg-white">
-                      <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
+                    {/* Hotels Card */}
+                    <div className="border rounded-lg relative group hover:border-indigo-300 hover:shadow-sm transition-all duration-200 bg-white">
+                      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
                       <div className="p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center">
-                            <Building2 className="h-5 w-5 text-blue-600 mr-2" />
-                            <h4 className="text-sm font-medium text-gray-900">Hotel</h4>
+                            <Building2 className="h-5 w-5 text-indigo-600 mr-2" />
+                            <h4 className="text-sm font-medium text-gray-900">Hotels</h4>
                           </div>
                           <div className="flex items-center space-x-2">
                             {ticket.entities.hotels.length > 0 && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 shadow-sm">
                                 {ticket.entities.hotels.length}
                               </span>
                             )}
                             <button
-                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 hover:text-indigo-800 hover:bg-indigo-50 rounded transition-colors"
                               onClick={() => {/* Add linking logic */}}
                             >
                               <span className="mr-1">+</span>
@@ -342,21 +342,20 @@ export default function TicketModal({ ticket, onClose }: TicketModalProps) {
                             </button>
                           </div>
                         </div>
-                        {hotelsData && hotelsData.length > 0 ? (
-                          <div className="space-y-2">
-                            {hotelsData.map((hotel, index) => (
-                              <div key={hotel.id} className={index > 0 ? 'pt-2 border-t' : ''}>
-                                <div className="flex items-center justify-between">
-                                  <p className="text-sm font-medium text-gray-900">{hotel.name}</p>
-                                  <button className="text-xs text-red-600 hover:text-red-900">
-                                    Remove
-                                  </button>
-                                </div>
-                                <p className="text-xs text-gray-600">{hotel.location}</p>
+                        {hotelsData?.filter(Boolean).map((hotel, index) => (
+                          hotel && (
+                            <div key={hotel.id} className={index > 0 ? 'pt-2 border-t' : ''}>
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium text-gray-900">{hotel.name}</p>
+                                <button className="text-xs text-red-600 hover:text-red-900">
+                                  Remove
+                                </button>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
+                              <p className="text-xs text-gray-600">{hotel.location}</p>
+                            </div>
+                          )
+                        ))}
+                        {(!hotelsData || hotelsData.length === 0) && (
                           <div className="text-center py-6">
                             <p className="text-sm text-gray-500">No hotels linked</p>
                             <button className="mt-2 inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors">
@@ -368,23 +367,23 @@ export default function TicketModal({ ticket, onClose }: TicketModalProps) {
                       </div>
                     </div>
 
-                    {/* Contact Card */}
-                    <div className="border rounded-lg relative group hover:border-purple-300 hover:shadow-sm transition-all duration-200 bg-white">
-                      <div className="absolute inset-0 bg-gradient-to-br from-purple-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
+                    {/* Contacts Card */}
+                    <div className="border rounded-lg relative group hover:border-indigo-300 hover:shadow-sm transition-all duration-200 bg-white">
+                      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-lg" />
                       <div className="p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center">
-                            <Contact2 className="h-5 w-5 text-purple-600 mr-2" />
-                            <h4 className="text-sm font-medium text-gray-900">Contact</h4>
+                            <Contact2 className="h-5 w-5 text-indigo-600 mr-2" />
+                            <h4 className="text-sm font-medium text-gray-900">Contacts</h4>
                           </div>
                           <div className="flex items-center space-x-2">
                             {ticket.entities.contacts.length > 0 && (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 shadow-sm">
                                 {ticket.entities.contacts.length}
                               </span>
                             )}
                             <button
-                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-purple-700 hover:text-purple-800 hover:bg-purple-50 rounded transition-colors"
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-indigo-700 hover:text-indigo-800 hover:bg-indigo-50 rounded transition-colors"
                               onClick={() => {/* Add linking logic */}}
                             >
                               <span className="mr-1">+</span>
@@ -392,21 +391,20 @@ export default function TicketModal({ ticket, onClose }: TicketModalProps) {
                             </button>
                           </div>
                         </div>
-                        {contactsData && contactsData.length > 0 ? (
-                          <div className="space-y-2">
-                            {contactsData.map((contact, index) => (
-                              <div key={contact.id} className={index > 0 ? 'pt-2 border-t' : ''}>
-                                <div className="flex items-center justify-between">
-                                  <p className="text-sm font-medium text-gray-900">{contact.name}</p>
-                                  <button className="text-xs text-red-600 hover:text-red-900">
-                                    Remove
-                                  </button>
-                                </div>
-                                <p className="text-xs text-gray-600">{contact.role}</p>
+                        {contactsData?.filter(Boolean).map((contact, index) => (
+                          contact && (
+                            <div key={contact.id} className={index > 0 ? 'pt-2 border-t' : ''}>
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm font-medium text-gray-900">{contact.name}</p>
+                                <button className="text-xs text-red-600 hover:text-red-900">
+                                  Remove
+                                </button>
                               </div>
-                            ))}
-                          </div>
-                        ) : (
+                              <p className="text-xs text-gray-600">{contact.role}</p>
+                            </div>
+                          )
+                        ))}
+                        {(!contactsData || contactsData.length === 0) && (
                           <div className="text-center py-6">
                             <p className="text-sm text-gray-500">No contacts linked</p>
                             <button className="mt-2 inline-flex items-center px-3 py-1.5 text-xs font-medium text-purple-600 hover:text-purple-700 hover:bg-purple-50 rounded-md transition-colors">

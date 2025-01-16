@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Users, Building2, Contact2, TicketCheck, HelpCircle, DollarSign, LayoutDashboard, UserCog } from 'lucide-react';
+import { BookOpen, Users, Building2, Contact2, HelpCircle, DollarSign, LayoutDashboard, UserCog } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocation } from '../../hooks/useLocation';
 

@@ -8,7 +8,21 @@ export type TransactionType = 'invoice' | 'purchase' | 'payment_received' | 'pay
 export type PaymentMethod = 'bank_transfer' | 'credit_card' | 'check' | 'other';
 export type UserRole = 'admin' | 'manager' | 'agent' | 'finance' | 'support';
 export type UserStatus = 'active' | 'inactive' | 'pending';
+export type EntityType = 'booking' | 'guest' | 'hotel' | 'contact';
 
+// Response Types
+export interface PaginatedResponse<T> {
+  data: T[];
+  total: number;
+  pages: number;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+}
+
+// Entity Types
 export interface User {
   id: string;
   name: string;
@@ -170,20 +184,7 @@ export interface Contact {
   email: string;
   phone: string;
   lastInteraction: string;
-}
-
-export interface Ticket {
-  id: string;
-  entities: {
-    bookings: string[];
-    guests: string[];
-    hotels: string[];
-    contacts: string[];
-  };
-  summary: string;
-  status: 'open' | 'in-progress' | 'resolved';
-  priority: 'low' | 'medium' | 'high';
-  createdAt: string;
+  employmentHistory?: Employment[];
 }
 
 export interface Employment {
@@ -194,13 +195,43 @@ export interface Employment {
   notes?: string;
 }
 
-export interface Contact {
+export interface Ticket {
   id: string;
-  name: string;
-  role: string;
-  hotelId: string;
-  email: string;
-  phone: string;
-  lastInteraction: string;
-  employmentHistory?: Employment[];
+  entities: {
+    bookings: string[];
+    guests: string[];
+    hotels: string[];
+    contacts: string[];
+  };
+  entityType?: EntityType;
+  entityId?: string;
+  summary: string;
+  status: 'open' | 'in-progress' | 'resolved';
+  priority: 'low' | 'medium' | 'high';
+  createdAt: string;
+}
+
+export interface TicketFilters {
+  limit?: number;
+  search?: string;
+  status?: Ticket['status'] | '';
+  priority?: Ticket['priority'] | '';
+  entityType?: EntityType | '';
+  entityId?: string;
+}
+
+export interface UserFilters {
+  limit?: number;
+  search?: string;
+  role?: UserRole | '';
+  status?: UserStatus | '';
+  department?: string;
+}
+
+export interface HotelFilters {
+  limit?: number;
+  search?: string;
+  location?: string;
+  segment?: Segment | '';
+  salesStage?: SalesStage | '';
 }

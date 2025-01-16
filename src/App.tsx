@@ -1,4 +1,3 @@
-import React from 'react';
 import Layout from './components/layout/Layout';
 import { useLocation } from './hooks/useLocation';
 import Dashboard from './pages/dashboard/Dashboard';

@@ -1,37 +1,10 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { authService, userService } from '../services/api';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { auth, userService } from '../services/api';
 import type { User } from '../types';
 
-const defaultUser = {
-  id: 'U001',
-  name: 'Admin User',
-  email: 'admin@hotelonline.co',
-  role: 'admin',
-  status: 'active',
-  department: 'Management',
-  lastActive: new Date().toISOString(),
-  createdAt: '2023-01-01T00:00:00Z',
-  permissions: [
-    'view:dashboard',
-    'view:hotels',
-    'edit:hotels',
-    'view:contacts',
-    'edit:contacts',
-    'view:bookings',
-    'edit:bookings',
-    'view:guests',
-    'edit:guests',
-    'view:finance',
-    'edit:finance',
-    'view:tickets',
-    'edit:tickets',
-    'manage:users'
-  ]
-} as const;
-
 interface AuthContextType {
+  user: User | null;
   isAuthenticated: boolean;
-  currentUser: User | null;
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
@@ -41,62 +14,32 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }): JSX.Element {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    return !!localStorage.getItem('token');
-  });
-  const [currentUser, setCurrentUser] = useState<User | null>(() => defaultUser);
-  const [isLoading, setIsLoading] = useState(true);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
-    async function initializeAuth() {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setIsAuthenticated(false);
-        setCurrentUser(null);
-        setIsLoading(false);
-        return;
-      }
-      
-      try {
-        const user = await userService.getCurrentUser();
-        setCurrentUser(user);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.error('Failed to fetch user data:', error);
-        setIsAuthenticated(false);
-        setCurrentUser(null);
-        localStorage.removeItem('token');
-      } finally {
-        setIsLoading(false);
-      }
+    // Check for existing token and validate
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      userService.getCurrentUser().then(setUser);
     }
-
-    initializeAuth();
-  }, [currentUser]);
+  }, []);
 
   const login = async (email: string, password: string) => {
-    try {
-      const response = await authService.login(email, password);
-      localStorage.setItem('token', response.token);
-      setIsAuthenticated(true);
+    const { access_token } = await auth.login(email, password);
+    if (access_token) {
       const user = await userService.getCurrentUser();
-      console.log('User logged in:', user);
-      setCurrentUser(user);
-    } catch (error) {
-      console.error('Login failed:', error);
-      throw error;
+      setUser(user);
     }
   };
 
   const logout = () => {
-    authService.logout();
-    setCurrentUser(null);
-    setIsAuthenticated(false);
+    auth.logout();
+    setUser(null);
   };
 
   const hasPermission = (permission: string): boolean => {
-    return currentUser?.permissions.includes(permission) || false;
+    return user?.permissions.includes(permission) || false;
   };
 
   const hasAnyPermission = (permissions: string[]): boolean => {
@@ -108,17 +51,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }): JSX.E
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      isAuthenticated, currentUser, login, logout,
-      hasPermission, hasAnyPermission, hasAllPermissions
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated: !!user,
+      hasPermission,
+      hasAnyPermission,
+      hasAllPermissions,
+      login,
+      logout
     }}>
-      {isLoading ? (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-        </div>
-      ) : (
-        children
-      )}
+      {children}
     </AuthContext.Provider>
   );
 }

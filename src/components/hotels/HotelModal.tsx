@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, MapPin, Star, Users, Banknote, Calendar, Mail, Phone, CheckCircle2, Clock, AlertCircle, ClipboardCheck, UserCheck, Building2, Megaphone, DollarSign, BookOpen, Contact2, TrendingUp, Network, FileText, ScrollText } from 'lucide-react';
+import { X, MapPin, Calendar, Mail, Phone, CheckCircle2, Clock, AlertCircle, ClipboardCheck, UserCheck, Building2, Megaphone, DollarSign, BookOpen, Contact2, TrendingUp, Network, FileText, ScrollText } from 'lucide-react';
 import type { Hotel } from '../../types';
 
 interface HotelModalProps {

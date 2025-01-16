@@ -8,6 +8,27 @@ import type {
 const IS_DEV = true; // Set to true to use mock data for all services except hotels
 const BASE_URL = 'https://apiservice.hotelonline.co/api';
 
+// Production credentials for hotels API
+const PROD_CREDENTIALS = {
+  email: 'admin@hotelonline.co',
+  password: 'admin123'
+};
+
+// Initialize hotels API auth
+const initHotelsAuth = async () => {
+  try {
+    const response = await axios.post(`${BASE_URL}/auth/login`, PROD_CREDENTIALS);
+    if (response.data?.access_token) {
+      localStorage.setItem('hotels_access_token', response.data.access_token);
+    }
+  } catch (error) {
+    console.error('Failed to initialize hotels API auth:', error);
+  }
+};
+
+// Call initHotelsAuth when module loads
+initHotelsAuth();
+
 // Mock user data for development
 const MOCK_USER: User = {
   id: '1',
@@ -125,7 +146,11 @@ if (token) {
 // Add request interceptor for authentication
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token');
+    // Use hotels token for hotels API, regular token for other endpoints
+    const token = config.url?.includes('/hotels') 
+      ? localStorage.getItem('hotels_access_token')
+      : localStorage.getItem('access_token');
+      
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
