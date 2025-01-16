@@ -13,6 +13,7 @@ type SortDirection = 'asc' | 'desc';
 export default function Hotels() {
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
   const [filters, setFilters] = useState<HotelFilters>({});
+  const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<PageSize>(20);
   const [sortField, setSortField] = useState<SortField>('name');
@@ -121,133 +122,141 @@ export default function Hotels() {
           <Building2 className="h-6 w-6 text-indigo-600" />
           <h1 className="text-2xl font-semibold text-gray-900">Hotels</h1>
         </div>
-        <button className="inline-flex items-center px-4 py-2 rounded-md bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-300">
-          <Filter className="h-4 w-4 mr-2" />
+        <button 
+          onClick={() => setShowFilters(!showFilters)}
+          className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium border
+            ${showFilters 
+              ? 'bg-indigo-50 text-indigo-700 border-indigo-300' 
+              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+        >
+          <Filter className={`h-4 w-4 mr-2 ${showFilters ? 'text-indigo-600' : ''}`} />
           Filters
         </button>
       </div>
 
-      <div className="flex gap-4 mb-6">
-        <div className="relative" ref={locationDropdownRef}>
-          <div
-            className="px-3 py-2 border rounded-md min-w-[200px] cursor-pointer flex items-center justify-between"
-            onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
-          >
-            <span className="text-gray-700">
-              {filters.location || 'All Locations'}
-            </span>
-            <ChevronRight className={`h-4 w-4 transition-transform ${isLocationDropdownOpen ? 'rotate-90' : ''}`} />
-          </div>
-          
-          {isLocationDropdownOpen && (
-            <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg">
-              <div className="p-2 border-b">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={locationSearch}
-                    onChange={(e) => setLocationSearch(e.target.value)}
-                    placeholder="Search locations..."
-                    className="w-full px-3 py-2 border rounded-md pr-8"
-                    autoFocus
-                  />
-                  <Search className="absolute right-2 top-2.5 h-4 w-4 text-gray-400" />
+      {showFilters && (
+        <div className="flex gap-4 mb-6">
+          <div className="relative" ref={locationDropdownRef}>
+            <div
+              className="px-3 py-2 border rounded-md min-w-[200px] cursor-pointer flex items-center justify-between"
+              onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
+            >
+              <span className="text-gray-700">
+                {filters.location || 'All Locations'}
+              </span>
+              <ChevronRight className={`h-4 w-4 transition-transform ${isLocationDropdownOpen ? 'rotate-90' : ''}`} />
+            </div>
+            
+            {isLocationDropdownOpen && (
+              <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg">
+                <div className="p-2 border-b">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={locationSearch}
+                      onChange={(e) => setLocationSearch(e.target.value)}
+                      placeholder="Search locations..."
+                      className="w-full px-3 py-2 border rounded-md pr-8"
+                      autoFocus
+                    />
+                    <Search className="absolute right-2 top-2.5 h-4 w-4 text-gray-400" />
+                  </div>
                 </div>
-              </div>
-              <div className="max-h-60 overflow-y-auto">
-                <div
-                  className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
-                  onClick={() => {
-                    handleFilterChange('location', '');
-                    setIsLocationDropdownOpen(false);
-                    setLocationSearch('');
-                  }}
-                >
-                  All Locations
-                </div>
-                {filteredLocations.map(location => (
+                <div className="max-h-60 overflow-y-auto">
                   <div
-                    key={location}
                     className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                     onClick={() => {
-                      handleFilterChange('location', location);
+                      handleFilterChange('location', '');
                       setIsLocationDropdownOpen(false);
                       setLocationSearch('');
                     }}
                   >
-                    {location}
+                    All Locations
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="relative" ref={segmentDropdownRef}>
-          <div
-            className="px-3 py-2 border rounded-md min-w-[200px] cursor-pointer flex items-center justify-between"
-            onClick={() => setIsSegmentDropdownOpen(!isSegmentDropdownOpen)}
-          >
-            <span className="text-gray-700">
-              {filters.segment || 'All Segments'}
-            </span>
-            <ChevronRight className={`h-4 w-4 transition-transform ${isSegmentDropdownOpen ? 'rotate-90' : ''}`} />
-          </div>
-          
-          {isSegmentDropdownOpen && (
-            <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg">
-              <div className="max-h-60 overflow-y-auto">
-                {isLoadingSegments ? (
-                  <div className="px-3 py-2 text-gray-500">Loading segments...</div>
-                ) : segmentsError ? (
-                  <div className="px-3 py-2 text-red-500">Error loading segments</div>
-                ) : (
-                  <>
+                  {filteredLocations.map(location => (
                     <div
+                      key={location}
                       className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                       onClick={() => {
-                        handleFilterChange('segment', '');
-                        setIsSegmentDropdownOpen(false);
+                        handleFilterChange('location', location);
+                        setIsLocationDropdownOpen(false);
+                        setLocationSearch('');
                       }}
                     >
-                      All Segments
+                      {location}
                     </div>
-                    {segments.map(segment => (
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="relative" ref={segmentDropdownRef}>
+            <div
+              className="px-3 py-2 border rounded-md min-w-[200px] cursor-pointer flex items-center justify-between"
+              onClick={() => setIsSegmentDropdownOpen(!isSegmentDropdownOpen)}
+            >
+              <span className="text-gray-700">
+                {filters.segment || 'All Segments'}
+              </span>
+              <ChevronRight className={`h-4 w-4 transition-transform ${isSegmentDropdownOpen ? 'rotate-90' : ''}`} />
+            </div>
+            
+            {isSegmentDropdownOpen && (
+              <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg">
+                <div className="max-h-60 overflow-y-auto">
+                  {isLoadingSegments ? (
+                    <div className="px-3 py-2 text-gray-500">Loading segments...</div>
+                  ) : segmentsError ? (
+                    <div className="px-3 py-2 text-red-500">Error loading segments</div>
+                  ) : (
+                    <>
                       <div
-                        key={segment}
                         className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                         onClick={() => {
-                          handleFilterChange('segment', segment);
+                          handleFilterChange('segment', '');
                           setIsSegmentDropdownOpen(false);
                         }}
                       >
-                        {segment}
+                        All Segments
                       </div>
-                    ))}
-                  </>
-                )}
+                      {segments.map(segment => (
+                        <div
+                          key={segment}
+                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                          onClick={() => {
+                            handleFilterChange('segment', segment);
+                            setIsSegmentDropdownOpen(false);
+                          }}
+                        >
+                          {segment}
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <select
-          value={(filters.salesStage as SalesStage) || ''}
-          onChange={e => handleFilterChange('salesStage', e.target.value)}
-          className="px-3 py-2 border rounded-md min-w-[200px]"
-        >
-          <option value="">All Sales Stages</option>
-          {isLoadingSalesProcesses ? (
-            <option disabled>Loading...</option>
-          ) : salesProcessesError ? (
-            <option disabled>Error loading sales stages</option>
-          ) : (
-            salesProcesses.map(stage => (
-              <option key={stage} value={stage}>{stage}</option>
-            ))
-          )}
-        </select>
-      </div>
+          <select
+            value={(filters.salesStage as SalesStage) || ''}
+            onChange={e => handleFilterChange('salesStage', e.target.value)}
+            className="px-3 py-2 border rounded-md min-w-[200px]"
+          >
+            <option value="">All Sales Stages</option>
+            {isLoadingSalesProcesses ? (
+              <option disabled>Loading...</option>
+            ) : salesProcessesError ? (
+              <option disabled>Error loading sales stages</option>
+            ) : (
+              salesProcesses.map(stage => (
+                <option key={stage} value={stage}>{stage}</option>
+              ))
+            )}
+          </select>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-8">
