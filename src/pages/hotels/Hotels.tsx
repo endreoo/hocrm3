@@ -1,12 +1,10 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { hotelService } from '../../services/api';
-import type { Hotel, Segment, SalesStage, HotelFilters } from '../../types';
+import type { Hotel, SalesStage, HotelFilters } from '../../types';
 import HotelModal from '../../components/hotels/HotelModal';
-import { Building2, Filter, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Building2, Filter, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
 
-const segments: Segment[] = ['luxury', 'business', 'budget', 'resort'];
-const salesStages: SalesStage[] = ['prospect', 'negotiation', 'active', 'inactive'];
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 type PageSize = typeof PAGE_SIZE_OPTIONS[number];
 type SortField = 'name' | 'location' | 'reviews' | 'rating' | 'segment' | 'salesStage';
@@ -19,6 +17,58 @@ export default function Hotels() {
   const [pageSize, setPageSize] = useState<PageSize>(20);
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [locationSearch, setLocationSearch] = useState('');
+  const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
+  const [isSegmentDropdownOpen, setIsSegmentDropdownOpen] = useState(false);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
+  const segmentDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Query for locations
+  const { data: locations = [] } = useQuery({
+    queryKey: ['hotelLocations'],
+    queryFn: () => hotelService.getLocations(),
+  });
+
+  // Query for segments
+  const { data: segments = [], isLoading: isLoadingSegments, error: segmentsError } = useQuery({
+    queryKey: ['hotelSegments'],
+    queryFn: () => hotelService.getSegments(),
+  });
+
+  // Query for sales processes
+  const { data: salesProcesses = [], isLoading: isLoadingSalesProcesses, error: salesProcessesError } = useQuery({
+    queryKey: ['hotelSalesProcesses'],
+    queryFn: () => hotelService.getSalesProcesses(),
+  });
+
+  // Log segments data for debugging
+  useEffect(() => {
+    if (segmentsError) {
+      console.error('Segments error:', segmentsError);
+    } else if (segments.length > 0) {
+      console.log('Current segments:', segments);
+    }
+  }, [segments, segmentsError]);
+
+  // Filter locations based on search
+  const filteredLocations = locations.filter(location =>
+    location.toLowerCase().includes(locationSearch.toLowerCase())
+  );
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target as Node)) {
+        setIsLocationDropdownOpen(false);
+      }
+      if (segmentDropdownRef.current && !segmentDropdownRef.current.contains(event.target as Node)) {
+        setIsSegmentDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleFilterChange = (key: keyof HotelFilters, value: string) => {
     if (value === '') {
@@ -78,32 +128,124 @@ export default function Hotels() {
       </div>
 
       <div className="flex gap-4 mb-6">
-        <input
-          type="text"
-          value={filters.location || ''}
-          onChange={e => handleFilterChange('location', e.target.value)}
-          placeholder="Filter by location..."
-          className="px-3 py-2 border rounded-md flex-1"
-        />
-        <select
-          value={(filters.segment as Segment) || ''}
-          onChange={e => handleFilterChange('segment', e.target.value)}
-          className="px-3 py-2 border rounded-md min-w-[200px]"
-        >
-          <option value="">All Segments</option>
-          {segments.map(segment => (
-            <option key={segment} value={segment}>{segment}</option>
-          ))}
-        </select>
+        <div className="relative" ref={locationDropdownRef}>
+          <div
+            className="px-3 py-2 border rounded-md min-w-[200px] cursor-pointer flex items-center justify-between"
+            onClick={() => setIsLocationDropdownOpen(!isLocationDropdownOpen)}
+          >
+            <span className="text-gray-700">
+              {filters.location || 'All Locations'}
+            </span>
+            <ChevronRight className={`h-4 w-4 transition-transform ${isLocationDropdownOpen ? 'rotate-90' : ''}`} />
+          </div>
+          
+          {isLocationDropdownOpen && (
+            <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg">
+              <div className="p-2 border-b">
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={locationSearch}
+                    onChange={(e) => setLocationSearch(e.target.value)}
+                    placeholder="Search locations..."
+                    className="w-full px-3 py-2 border rounded-md pr-8"
+                    autoFocus
+                  />
+                  <Search className="absolute right-2 top-2.5 h-4 w-4 text-gray-400" />
+                </div>
+              </div>
+              <div className="max-h-60 overflow-y-auto">
+                <div
+                  className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                  onClick={() => {
+                    handleFilterChange('location', '');
+                    setIsLocationDropdownOpen(false);
+                    setLocationSearch('');
+                  }}
+                >
+                  All Locations
+                </div>
+                {filteredLocations.map(location => (
+                  <div
+                    key={location}
+                    className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                    onClick={() => {
+                      handleFilterChange('location', location);
+                      setIsLocationDropdownOpen(false);
+                      setLocationSearch('');
+                    }}
+                  >
+                    {location}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="relative" ref={segmentDropdownRef}>
+          <div
+            className="px-3 py-2 border rounded-md min-w-[200px] cursor-pointer flex items-center justify-between"
+            onClick={() => setIsSegmentDropdownOpen(!isSegmentDropdownOpen)}
+          >
+            <span className="text-gray-700">
+              {filters.segment || 'All Segments'}
+            </span>
+            <ChevronRight className={`h-4 w-4 transition-transform ${isSegmentDropdownOpen ? 'rotate-90' : ''}`} />
+          </div>
+          
+          {isSegmentDropdownOpen && (
+            <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg">
+              <div className="max-h-60 overflow-y-auto">
+                {isLoadingSegments ? (
+                  <div className="px-3 py-2 text-gray-500">Loading segments...</div>
+                ) : segmentsError ? (
+                  <div className="px-3 py-2 text-red-500">Error loading segments</div>
+                ) : (
+                  <>
+                    <div
+                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => {
+                        handleFilterChange('segment', '');
+                        setIsSegmentDropdownOpen(false);
+                      }}
+                    >
+                      All Segments
+                    </div>
+                    {segments.map(segment => (
+                      <div
+                        key={segment}
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                        onClick={() => {
+                          handleFilterChange('segment', segment);
+                          setIsSegmentDropdownOpen(false);
+                        }}
+                      >
+                        {segment}
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
         <select
           value={(filters.salesStage as SalesStage) || ''}
           onChange={e => handleFilterChange('salesStage', e.target.value)}
           className="px-3 py-2 border rounded-md min-w-[200px]"
         >
           <option value="">All Sales Stages</option>
-          {salesStages.map(stage => (
-            <option key={stage} value={stage}>{stage}</option>
-          ))}
+          {isLoadingSalesProcesses ? (
+            <option disabled>Loading...</option>
+          ) : salesProcessesError ? (
+            <option disabled>Error loading sales stages</option>
+          ) : (
+            salesProcesses.map(stage => (
+              <option key={stage} value={stage}>{stage}</option>
+            ))
+          )}
         </select>
       </div>
 

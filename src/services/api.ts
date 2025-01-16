@@ -234,6 +234,32 @@ export const hotelService = {
     });
     return response.data;
   },
+  
+  getLocations: async (): Promise<string[]> => {
+    const response = await api.get<string[]>('/hotels/locations');
+    return response.data;
+  },
+
+  getSegments: async (): Promise<string[]> => {
+    // Always use real API for segments
+    const response = await api.get<string[]>('/hotels/segments');
+    return response.data;
+  },
+
+  getSalesProcesses: async (): Promise<string[]> => {
+    // Always use real API for sales processes
+    interface SalesProcess {
+      id: number;
+      name: string;
+      description: string | null;
+      created_at: string;
+      updated_at: string;
+    }
+    const response = await api.get<SalesProcess[]>('/hotels/sales-processes');
+    return response.data
+      .sort((a, b) => a.id - b.id)
+      .map(process => process.name);
+  },
 };
 
 export interface BookingFilters extends Partial<Booking> {
@@ -377,6 +403,15 @@ export const userService = {
     return MOCK_USER;
   },
 };
+
+// Add the interface for segment response
+interface ApiSegment {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 // Export all services
 export const apiService = {
