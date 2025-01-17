@@ -195,7 +195,17 @@ export const hotelService = {
   getHotel: (id: number) => api.get<Hotel>(`/hotels/${id}`).then(res => res.data),
   createHotel: (data: Partial<Hotel>) => api.post<Hotel>('/hotels', data).then(res => res.data),
   updateHotel: (id: number, data: Partial<Hotel>) => api.put<Hotel>(`/hotels/${id}`, data).then(res => res.data),
-  deleteHotel: (id: number) => api.delete(`/hotels/${id}`).then(res => res.data),
+  deleteHotel: async (id: number) => {
+    console.log('Deleting hotel:', id);
+    const response = await api.delete(`/hotels/${id}`);
+    return response.data;
+  },
+  deleteHotels: async (ids: number[]) => {
+    console.log('Deleting hotels:', ids);
+    // Delete hotels in parallel
+    await Promise.all(ids.map(id => api.delete(`/hotels/${id}`)));
+    return true;
+  },
   getLocations: () => api.get<Location[]>('/hotels/locations').then(res => res.data),
   getSegments: () => api.get<Segment[]>('/hotels/segments').then(res => res.data),
   getSalesProcesses: () => api.get<SalesProcess[]>('/hotels/sales-processes').then(res => res.data)
@@ -432,7 +442,15 @@ export const financeService = {
 // User service (Real API)
 export const userService = {
   getUsers: (filters?: UserFilters) => 
-    api.get<PaginatedResponse<User>>('/users', { params: filters }).then(res => res.data),
+    api.get<UserResponse>('/users', { params: filters }).then(res => ({
+      data: res.data.users,
+      meta: {
+        total: res.data.total,
+        page: res.data.currentPage,
+        limit: filters?.limit || 10,
+        totalPages: res.data.totalPages
+      }
+    })),
   
   getUser: (id: number) => 
     api.get<User>(`/users/${id}`).then(res => res.data),

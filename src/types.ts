@@ -4,11 +4,10 @@ export interface User {
   email: string;
   job_title: string;
   role: 'admin' | 'user';
-  contact_id: number | null;
-  points: number;
   title: string | null;
   is_approved: boolean;
-  room_type_preferences: string | null;
+  points: number;
+  room_type_preferences: number[] | null;
 }
 
 export interface CreateUserInput {
@@ -32,10 +31,20 @@ export interface AuthResponse {
 }
 
 export interface UserFilters {
-  search?: string;
-  role?: string;
-  status?: string;
+  page?: number;
   limit?: number;
+  role?: 'admin' | 'user' | '';
+  is_approved?: boolean;
+  search?: string;
+  sortBy?: string;
+  order?: 'ASC' | 'DESC';
+}
+
+export interface UserResponse {
+  total: number;
+  totalPages: number;
+  currentPage: number;
+  users: User[];
 }
 
 // Hotel types
