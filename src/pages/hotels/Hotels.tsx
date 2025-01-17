@@ -1,16 +1,63 @@
 import { useState, useRef, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { hotelService } from '../../services/api';
 import type { Hotel, Location, Segment, SalesProcess } from '../../types';
 import { HotelFilters, SortDirection, SortField } from '../../types';
 import HotelModal from '../../components/hotels/HotelModal';
-import { Building2, Filter, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
+import { Building2, Filter, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, Trash2, CheckSquare, Square, X } from 'lucide-react';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 type PageSize = typeof PAGE_SIZE_OPTIONS[number];
 
+interface DeleteConfirmationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+}
+
+function DeleteConfirmationModal({ isOpen, onClose, onConfirm, title, message }: DeleteConfirmationModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-500"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="text-sm text-gray-500 mb-6">{message}</p>
+        <div className="flex justify-end space-x-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Hotels() {
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
+  const [selectedHotels, setSelectedHotels] = useState<Set<number>>(new Set());
   const [filters, setFilters] = useState<HotelFilters>({
     page: 1,
     limit: 20 as PageSize,
@@ -23,6 +70,11 @@ export default function Hotels() {
   const [isSegmentDropdownOpen, setIsSegmentDropdownOpen] = useState(false);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
   const segmentDropdownRef = useRef<HTMLDivElement>(null);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [hotelToDelete, setHotelToDelete] = useState<number | null>(null);
+  const [showMassDeleteConfirmation, setShowMassDeleteConfirmation] = useState(false);
+
+  const queryClient = useQueryClient();
 
   // Query for locations
   const { data: locations = [], isLoading: isLoadingLocations } = useQuery<Location[]>({
@@ -121,6 +173,65 @@ export default function Hotels() {
     console.error('Hotels query error:', error);
   }
 
+  // Delete mutations
+  const { mutate: deleteHotel } = useMutation({
+    mutationFn: (id: number) => hotelService.deleteHotel(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hotels'] });
+    },
+  });
+
+  const { mutate: deleteHotels } = useMutation({
+    mutationFn: (ids: number[]) => hotelService.deleteHotels(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hotels'] });
+      setSelectedHotels(new Set());
+    },
+  });
+
+  const handleSelectHotel = (hotelId: number) => {
+    setSelectedHotels(prev => {
+      const next = new Set(prev);
+      if (next.has(hotelId)) {
+        next.delete(hotelId);
+      } else {
+        next.add(hotelId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (hotelsData?.data) {
+      if (selectedHotels.size === hotelsData.data.length) {
+        setSelectedHotels(new Set());
+      } else {
+        setSelectedHotels(new Set(hotelsData.data.map(hotel => hotel.id)));
+      }
+    }
+  };
+
+  const handleDeleteClick = (hotelId: number) => {
+    setHotelToDelete(hotelId);
+    setShowDeleteConfirmation(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (hotelToDelete) {
+      deleteHotel(hotelToDelete);
+    }
+  };
+
+  const handleMassDeleteClick = () => {
+    setShowMassDeleteConfirmation(true);
+  };
+
+  const handleConfirmMassDelete = () => {
+    if (selectedHotels.size > 0) {
+      deleteHotels(Array.from(selectedHotels));
+    }
+  };
+
   return (
     <div className="px-6 py-6">
       <div className="flex items-center justify-between mb-6">
@@ -128,16 +239,27 @@ export default function Hotels() {
           <Building2 className="h-6 w-6 text-indigo-600" />
           <h1 className="text-2xl font-semibold text-gray-900">Hotels</h1>
         </div>
-        <button 
-          onClick={() => setShowFilters(!showFilters)}
-          className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium border
-            ${showFilters 
-              ? 'bg-indigo-50 text-indigo-700 border-indigo-300' 
-              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
-        >
-          <Filter className={`h-4 w-4 mr-2 ${showFilters ? 'text-indigo-600' : ''}`} />
-          Filters
-        </button>
+        <div className="flex items-center gap-4">
+          {selectedHotels.size > 0 && (
+            <button
+              onClick={handleMassDeleteClick}
+              className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium border border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Selected ({selectedHotels.size})
+            </button>
+          )}
+          <button 
+            onClick={() => setShowFilters(!showFilters)}
+            className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium border
+              ${showFilters 
+                ? 'bg-indigo-50 text-indigo-700 border-indigo-300' 
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+          >
+            <Filter className={`h-4 w-4 mr-2 ${showFilters ? 'text-indigo-600' : ''}`} />
+            Filters
+          </button>
+        </div>
       </div>
 
       {showFilters && (
@@ -264,212 +386,240 @@ export default function Hotels() {
         </div>
       )}
 
-      {isLoading ? (
-        <div className="flex justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-        </div>
-      ) : error ? (
-        <div className="text-center py-8 text-red-600">
-          Error loading hotels. Please try again later.
-        </div>
-      ) : !hotelsData?.data?.length ? (
-        <div className="text-center py-8 text-gray-600">
-          No hotels found matching your criteria.
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full table-fixed divide-y divide-gray-200">
-                <colgroup>
-                  <col className="w-80" />
-                  <col className="w-40" />
-                  <col className="w-32" />
-                  <col className="w-32" />
-                  <col className="w-40" />
-                  <col className="w-40" />
-                </colgroup>
-                <thead>
-                  <tr className="bg-gray-50">
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort(SortField.NAME)}
+      <div className="mt-6 bg-white rounded-lg shadow">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left">
+                  <div className="flex items-center">
+                    <button
+                      onClick={handleSelectAll}
+                      className="text-gray-500 hover:text-gray-700"
                     >
-                      <div className="flex items-center gap-2">
-                        Name
-                        <span className="invisible group-hover:visible">
-                          {getSortIcon(SortField.NAME)}
-                        </span>
-                      </div>
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort(SortField.LOCATION)}
-                    >
-                      <div className="flex items-center gap-2">
-                        Location
-                        <span className="invisible group-hover:visible">
-                          {getSortIcon(SortField.LOCATION)}
-                        </span>
-                      </div>
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort(SortField.REVIEWS)}
-                    >
-                      <div className="flex items-center gap-2">
-                        Reviews
-                        <span className="invisible group-hover:visible">
-                          {getSortIcon(SortField.REVIEWS)}
-                        </span>
-                      </div>
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort(SortField.RATING)}
-                    >
-                      <div className="flex items-center gap-2">
-                        Rating
-                        <span className="invisible group-hover:visible">
-                          {getSortIcon(SortField.RATING)}
-                        </span>
-                      </div>
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort(SortField.SEGMENT)}
-                    >
-                      <div className="flex items-center gap-2">
-                        Segment
-                        <span className="invisible group-hover:visible">
-                          {getSortIcon(SortField.SEGMENT)}
-                        </span>
-                      </div>
-                    </th>
-                    <th 
-                      scope="col" 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort(SortField.SALES_STAGE)}
-                    >
-                      <div className="flex items-center gap-2">
-                        Sales Stage
-                        <span className="invisible group-hover:visible">
-                          {getSortIcon(SortField.SALES_STAGE)}
-                        </span>
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {hotelsData.data.map((hotel) => (
-                    <tr
-                      key={hotel.id}
-                      onClick={() => setSelectedHotel(hotel)}
-                      className="hover:bg-gray-50 cursor-pointer"
-                    >
-                      <td className="px-6 py-4 text-sm font-medium text-gray-900 truncate">
+                      {hotelsData?.data && selectedHotels.size === hotelsData.data.length ? (
+                        <CheckSquare className="h-5 w-5" />
+                      ) : (
+                        <Square className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-xs">
+                  <button
+                    onClick={() => handleSort('name')}
+                    className="group inline-flex items-center space-x-2"
+                  >
+                    <span>Name</span>
+                    {getSortIcon('name')}
+                  </button>
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    onClick={() => handleSort('location')}
+                    className="group inline-flex items-center space-x-2"
+                  >
+                    <span>Location</span>
+                    {getSortIcon('location')}
+                  </button>
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Segment
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Sales Stage
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    onClick={() => handleSort('status')}
+                    className="group inline-flex items-center space-x-2"
+                  >
+                    <span>Status</span>
+                    {getSortIcon('status')}
+                  </button>
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                    Loading hotels...
+                  </td>
+                </tr>
+              ) : error ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-red-500">
+                    Error loading hotels
+                  </td>
+                </tr>
+              ) : !hotelsData?.data?.length ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                    No hotels found
+                  </td>
+                </tr>
+              ) : (
+                hotelsData.data.map(hotel => (
+                  <tr 
+                    key={hotel.id} 
+                    className="hover:bg-gray-50 cursor-pointer"
+                    onClick={(e) => {
+                      // Only open modal if not clicking on buttons or checkbox
+                      if (!(e.target as HTMLElement).closest('button')) {
+                        setSelectedHotel(hotel);
+                      }
+                    }}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent row click
+                          handleSelectHotel(hotel.id);
+                        }}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        {selectedHotels.has(hotel.id) ? (
+                          <CheckSquare className="h-5 w-5" />
+                        ) : (
+                          <Square className="h-5 w-5" />
+                        )}
+                      </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap max-w-xs">
+                      <div className="text-sm font-medium text-gray-900 truncate" title={hotel.name}>
                         {hotel.name}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 truncate">
-                        {hotel.location}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500 truncate">
-                        {hotel.google_number_of_reviews || 'No reviews'}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center">
-                          <span className="text-sm text-gray-900 mr-1">{hotel.google_review_score || 'N/A'}</span>
-                          {hotel.google_review_score && <span className="text-yellow-400">★</span>}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {hotel.segment?.name || 'N/A'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          hotel.sales_process?.stage === 'active' ? 'bg-green-100 text-green-800' :
-                          hotel.sales_process?.stage === 'negotiation' ? 'bg-yellow-100 text-yellow-800' :
-                          hotel.sales_process?.stage === 'prospect' ? 'bg-purple-100 text-purple-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {hotel.sales_process?.name || 'Not Started'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          
-          <div className="bg-white border border-gray-200 px-4 py-3 rounded-lg flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <select
-                value={filters.limit}
-                onChange={(e) => {
-                  setFilters(prev => ({
-                    ...prev,
-                    limit: Number(e.target.value) as PageSize
-                  }));
-                }}
-                className="rounded-md border-gray-300 text-sm"
-              >
-                {PAGE_SIZE_OPTIONS.map(size => (
-                  <option key={size} value={size}>{size} per page</option>
-                ))}
-              </select>
-              <span className="text-sm text-gray-700">
-                Showing{' '}
-                <span className="font-medium">{((filters.page || 1) - 1) * (filters.limit || 20) + 1}</span>
-                {' '}-{' '}
-                <span className="font-medium">
-                  {Math.min((filters.page || 1) * (filters.limit || 20), hotelsData?.meta.total || 0)}
-                </span>
-                {' '}of{' '}
-                <span className="font-medium">{hotelsData?.meta.total || 0}</span>
-                {' '}results
-              </span>
-            </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{hotel.location}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{hotel.segment?.name}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{hotel.sales_process?.name}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                        ${hotel.status === 'active' ? 'bg-green-100 text-green-800' :
+                          hotel.status === 'inactive' ? 'bg-red-100 text-red-800' :
+                          'bg-gray-100 text-gray-800'}`}
+                      >
+                        {hotel.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent row click
+                            setSelectedHotel(hotel);
+                          }}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent row click
+                            handleDeleteClick(hotel.id);
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-            <div className="flex items-center gap-2">
+      {/* Pagination */}
+      {hotelsData?.meta && (
+        <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-white border border-gray-200 rounded-lg sm:px-6">
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            <select
+              value={filters.limit}
+              onChange={(e) => handleFilterChange('limit', Number(e.target.value))}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            >
+              {PAGE_SIZE_OPTIONS.map(size => (
+                <option key={size} value={size}>
+                  {size} per page
+                </option>
+              ))}
+            </select>
+            <p className="text-sm text-gray-700 whitespace-nowrap">
+              <span className="font-medium">{hotelsData.meta.total}</span> records
+            </p>
+          </div>
+
+          {hotelsData.meta.totalPages > 1 && (
+            <div className="flex items-center justify-end gap-2 w-full sm:w-auto">
               <button
-                onClick={() => setFilters(prev => ({
-                  ...prev,
-                  page: Math.max(1, (prev.page || 1) - 1)
-                }))}
-                disabled={(filters.page || 1) === 1}
-                className="inline-flex items-center px-3 py-2 rounded-md border text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed
-                  border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                onClick={() => handleFilterChange('page', 1)}
+                disabled={filters.page === 1}
+                className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:z-10 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
+                <span className="sr-only">First</span>
+                ⟪
               </button>
               <button
-                onClick={() => setFilters(prev => ({
-                  ...prev,
-                  page: Math.min(
-                    Math.ceil((hotelsData?.meta.total || 0) / (prev.limit || 20)), 
-                    (prev.page || 1) + 1
-                  )
-                }))}
-                disabled={(filters.page || 1) * (filters.limit || 20) >= (hotelsData?.meta.total || 0)}
-                className="inline-flex items-center px-3 py-2 rounded-md border text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed
-                  border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                onClick={() => handleFilterChange('page', filters.page! - 1)}
+                disabled={filters.page === 1}
+                className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:z-10 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
+                <span className="sr-only">Previous</span>
+                ⟨
+              </button>
+              <span className="text-sm text-gray-700 whitespace-nowrap">
+                Page <span className="font-medium">{filters.page}</span> of{' '}
+                <span className="font-medium">{hotelsData.meta.totalPages}</span>
+              </span>
+              <button
+                onClick={() => handleFilterChange('page', filters.page! + 1)}
+                disabled={filters.page === hotelsData.meta.totalPages}
+                className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:z-10 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="sr-only">Next</span>
+                ⟩
+              </button>
+              <button
+                onClick={() => handleFilterChange('page', hotelsData.meta.totalPages)}
+                disabled={filters.page === hotelsData.meta.totalPages}
+                className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:z-10 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <span className="sr-only">Last</span>
+                ⟫
               </button>
             </div>
-          </div>
+          )}
         </div>
       )}
+
+      <DeleteConfirmationModal
+        isOpen={showDeleteConfirmation}
+        onClose={() => setShowDeleteConfirmation(false)}
+        onConfirm={handleConfirmDelete}
+        title="Delete Hotel"
+        message="Are you sure you want to delete this hotel? This action cannot be undone."
+      />
+
+      <DeleteConfirmationModal
+        isOpen={showMassDeleteConfirmation}
+        onClose={() => setShowMassDeleteConfirmation(false)}
+        onConfirm={handleConfirmMassDelete}
+        title="Delete Multiple Hotels"
+        message={`Are you sure you want to delete ${selectedHotels.size} hotels? This action cannot be undone.`}
+      />
 
       {selectedHotel && (
         <HotelModal
