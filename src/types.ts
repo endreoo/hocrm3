@@ -60,14 +60,14 @@ export interface Hotel {
 }
 
 export interface HotelFilters {
-  page?: number;
-  limit?: number;
-  sortBy?: string;
-  order?: 'ASC' | 'DESC';
+  search?: string;
   location?: string;
   segment_id?: number;
   sales_process_id?: number;
-  search?: string;
+  sortBy?: string;
+  order?: 'ASC' | 'DESC';
+  page?: number;
+  limit?: number;
   min_rating?: number;
   max_rating?: number;
 }
@@ -192,10 +192,7 @@ export interface HotelBalance {
   lastUpdated: string;
 }
 
-export interface Location {
-  id: number;
-  name: string;
-}
+export type Location = string;
 
 export interface Segment {
   id: number;

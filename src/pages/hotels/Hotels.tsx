@@ -44,7 +44,7 @@ export default function Hotels() {
 
   // Filter locations based on search
   const filteredLocations = locations?.filter(location =>
-    location?.name?.toLowerCase().includes(locationSearch?.toLowerCase() || '')
+    location?.toLowerCase().includes(locationSearch?.toLowerCase() || '')
   ) || [];
 
   // Close dropdowns when clicking outside
@@ -181,15 +181,15 @@ export default function Hotels() {
                   </div>
                   {filteredLocations.map(location => (
                     <div
-                      key={location.id}
+                      key={location}
                       className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                       onClick={() => {
-                        handleFilterChange('location', location.name);
+                        handleFilterChange('location', location);
                         setIsLocationDropdownOpen(false);
                         setLocationSearch('');
                       }}
                     >
-                      {location.name}
+                      {location}
                     </div>
                   ))}
                 </div>
