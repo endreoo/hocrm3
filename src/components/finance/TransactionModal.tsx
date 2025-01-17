@@ -14,8 +14,8 @@ export default function TransactionModal({ transaction, onClose }: TransactionMo
 
   const { data: hotel } = useQuery({
     queryKey: ['hotel', transaction.hotelId],
-    queryFn: () => hotelService.getHotels(1).then(res => 
-      res.data.find(h => h.id === transaction.hotelId)
+    queryFn: () => hotelService.getHotels({ page: 1, limit: 20 }).then(res => 
+      res.data.find(h => h.id === Number(transaction.hotelId))
     ),
   });
 

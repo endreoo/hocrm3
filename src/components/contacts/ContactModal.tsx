@@ -12,8 +12,8 @@ interface ContactModalProps {
 export default function ContactModal({ contact, onClose }: ContactModalProps) {
   const { data: hotel } = useQuery({
     queryKey: ['hotel', contact.hotelId],
-    queryFn: () => hotelService.getHotels(1).then(res => 
-      res.data.find(h => h.id === contact.hotelId)
+    queryFn: () => hotelService.getHotels({ page: 1, limit: 20 }).then(res => 
+      res.data.find(h => h.id === Number(contact.hotelId))
     ),
     enabled: !!contact.hotelId,
   });

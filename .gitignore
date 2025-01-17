@@ -43,3 +43,8 @@ Thumbs.db
 # Cache
 .cache/
 .eslintcache
+
+# Environment variables
+.env
+.env.local
+.env.*.local

@@ -8,10 +8,29 @@ import { hotelService, bookingService, guestService, financeService } from '../.
 
 export default function Dashboard() {
   // Fetch data from all services
-  const { data: hotelsData } = useQuery({
+  const { data: hotelsData, isLoading: isLoadingHotels, error: hotelsError } = useQuery({
     queryKey: ['hotels-dashboard'],
-    queryFn: () => hotelService.getHotels(1),
+    queryFn: async () => {
+      const response = await hotelService.getHotels();
+      console.log('Hotels API Response:', response);
+      return response;
+    },
+    staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
+
+  console.log('=== Dashboard Debug Logs ===');
+  console.log('Hotels Query State:', {
+    isLoading: isLoadingHotels,
+    hasError: !!hotelsError,
+    hasData: !!hotelsData,
+    totalHotels: hotelsData?.meta?.total,
+    hotelCount: hotelsData?.data?.length,
+    rawData: hotelsData
+  });
+
+  if (hotelsError) {
+    console.error('Hotels Query Error:', hotelsError);
+  }
 
   const { data: bookingsData } = useQuery({
     queryKey: ['bookings-dashboard'],
@@ -36,7 +55,15 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">
-                Total Hotels: <span className="font-medium">{hotelsData?.total || 0}</span>
+                Total Hotels: <span className="font-medium">
+                  {isLoadingHotels ? (
+                    '...'
+                  ) : hotelsError ? (
+                    <span className="text-red-500">Error</span>
+                  ) : (
+                    hotelsData?.meta?.total ?? 0
+                  )}
+                </span>
               </span>
             </div>
             <div className="p-3 bg-indigo-100 rounded-full">
@@ -45,8 +72,7 @@ export default function Dashboard() {
           </div>
           <div className="mt-4 flex items-center text-sm text-gray-600">
             <TrendingUp className="h-4 w-4 mr-1 text-green-500" />
-            <span className="text-green-500">+12%</span>
-            <span className="ml-1">from last month</span>
+            <span>Updated just now</span>
           </div>
         </div>
 
@@ -72,7 +98,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">
-                Total Guests: <span className="font-medium">{guestsData?.total || 0}</span>
+                Total Guests: <span className="font-medium">{guestsData?.meta.total || 0}</span>
               </span>
             </div>
             <div className="p-3 bg-blue-100 rounded-full">
@@ -258,14 +284,17 @@ export default function Dashboard() {
                     <div className="flex items-center">
                       <div className="flex items-center mr-4">
                         <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                        <span className="text-sm text-gray-600">{hotel.rating}</span>
+                        <span className="text-sm text-gray-600">
+                          {hotel.google_review_score || 'N/A'}
+                        </span>
                       </div>
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                        hotel.salesStage === 'active' ? 'bg-green-100 text-green-800' :
-                        hotel.salesStage === 'negotiation' ? 'bg-yellow-100 text-yellow-800' :
+                        hotel.sales_process?.stage === 'active' ? 'bg-green-100 text-green-800' :
+                        hotel.sales_process?.stage === 'negotiation' ? 'bg-yellow-100 text-yellow-800' :
+                        hotel.sales_process?.stage === 'prospect' ? 'bg-purple-100 text-purple-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
-                        {hotel.salesStage}
+                        {hotel.sales_process?.name || 'Not Started'}
                       </span>
                     </div>
                   </div>

@@ -145,11 +145,11 @@ export default function Tickets() {
                   Previous
                 </button>
                 <div className="text-sm text-gray-600">
-                  Page {page} of {ticketsData?.pages || 1}
+                  Page {page} of {ticketsData?.meta.totalPages || 1}
                 </div>
                 <button
-                  onClick={() => setPage(p => Math.min(ticketsData?.pages || 1, p + 1))}
-                  disabled={page >= (ticketsData?.pages || 1)}
+                  onClick={() => setPage(p => Math.min(ticketsData?.meta.totalPages || 1, p + 1))}
+                  disabled={page >= (ticketsData?.meta.totalPages || 1)}
                   className="rounded bg-indigo-600 px-3 py-1 text-white disabled:opacity-50"
                 >
                   Next

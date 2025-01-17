@@ -2,56 +2,215 @@ import axios from 'axios';
 import type { 
   User, Hotel, Booking, Guest, Contact, Ticket, Transaction, 
   HotelBalance, PaginatedResponse, AuthResponse, UserFilters, TicketFilters, HotelFilters,
-  Status, EntityType, TransactionType
+  Status, EntityType, TransactionType, Location, Segment, SalesProcess,
+  CreateUserInput,
+  UpdateUserInput
 } from '../types';
 
-const IS_DEV = true; // Set to true to use mock data for all services except hotels
-const BASE_URL = 'https://apiservice.hotelonline.co/api';
+// Configuration
+const IS_DEV = false; // Disable mock data to use real API
+const BASE_URL = import.meta.env.VITE_CRM_API_URL || 'http://37.27.142.148:3000';
+const DEFAULT_EMAIL = import.meta.env.VITE_CRM_EMAIL || 'testadmin2@example.com';
+const DEFAULT_PASSWORD = import.meta.env.VITE_CRM_PASSWORD || 'test1234';
 
-// Production credentials for hotels API
-const PROD_CREDENTIALS = {
-  email: 'admin@hotelonline.co',
-  password: 'admin123'
-};
+// Initialize axios instance
+export const api = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  },
+});
 
-// Initialize hotels API auth
-const initHotelsAuth = async () => {
-  try {
-    const response = await axios.post(`${BASE_URL}/auth/login`, PROD_CREDENTIALS);
-    if (response.data?.access_token) {
-      localStorage.setItem('hotels_access_token', response.data.access_token);
+// Add request interceptor for authentication
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+      console.log('Setting auth header:', config.headers['Authorization']);
+    } else {
+      console.log('No token found in localStorage');
     }
-  } catch (error) {
-    console.error('Failed to initialize hotels API auth:', error);
+    return config;
+  },
+  (error) => {
+    console.error('Request interceptor error:', error);
+    return Promise.reject(error);
   }
+);
+
+// Add response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 401) {
+        console.log('Unauthorized request - clearing token');
+        localStorage.removeItem('access_token');
+        delete api.defaults.headers.common['Authorization'];
+      }
+      console.error('API Error:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        headers: error.config?.headers
+      });
+    }
+    return Promise.reject(error);
+  }
+);
+
+// Auth endpoints
+export const auth = {
+  register: async (data: Partial<User>): Promise<AuthResponse> => {
+    try {
+      console.log('=== Register Debug Logs ===');
+      const response = await api.post<AuthResponse>('/auth/register', data);
+      
+      if (response.data.token) {
+        localStorage.setItem('access_token', response.data.token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+        console.log('Token set successfully after registration');
+      }
+      return response.data;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+  },
+
+  login: async (email: string, password: string): Promise<AuthResponse> => {
+    try {
+      console.log('=== Login Debug Logs ===');
+      console.log('Login attempt:', { email });
+
+      const response = await api.post<AuthResponse>('/auth/login', {
+        email,
+        password
+      });
+
+      console.log('Login response:', {
+        status: response.status,
+        hasToken: !!response.data.token
+      });
+
+      if (response.data.token) {
+        localStorage.setItem('access_token', response.data.token);
+        api.defaults.headers.common['Authorization'] = `Bearer ${response.data.token}`;
+        console.log('Token set successfully');
+        return response.data;
+      }
+      throw new Error('No access token received');
+    } catch (error) {
+      console.error('=== Login Error ===');
+      if (axios.isAxiosError(error)) {
+        console.error('Login error details:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data
+        });
+      }
+      throw error;
+    }
+  },
+
+  getProfile: async (): Promise<User> => {
+    const response = await api.get<User>('/auth/profile');
+    return response.data;
+  },
+
+  updateProfile: async (data: Partial<User>): Promise<User> => {
+    const response = await api.patch<User>('/auth/profile', data);
+    return response.data;
+  },
+
+  approveUser: async (id: number): Promise<void> => {
+    await api.post(`/auth/approve/${id}`);
+  },
+
+  logout: () => {
+    localStorage.removeItem('access_token');
+    delete api.defaults.headers.common['Authorization'];
+    console.log('Token cleared from localStorage and headers');
+  },
 };
 
-// Call initHotelsAuth when module loads
-initHotelsAuth();
+// Hotel service (Real API)
+export const hotelService = {
+  getHotels: async (filters?: HotelFilters) => {
+    console.log('=== Get Hotels Debug Logs ===');
+    console.log('Request filters:', filters);
+    try {
+      const response = await api.get<HotelResponse>('/hotels', { params: filters });
+      
+      // Map API response to CRM expected structure
+      const mappedResponse: PaginatedResponse<Hotel> = {
+        data: response.data.hotels.map(hotel => ({
+          id: hotel.id,
+          name: hotel.name,
+          location: hotel.location,
+          segment: hotel.segment || { id: 0, name: '' },
+          sales_process: hotel.salesProcess ? {
+            id: hotel.salesProcess.id,
+            name: hotel.salesProcess.name,
+            stage: String(hotel.salesProcess.stage || '')
+          } : { id: 0, name: '', stage: '' },
+          status: 'active',
+          google_review_score: hotel.google_review_score || 0,
+          google_number_of_reviews: hotel.google_number_of_reviews || 0,
+          created_at: '',
+          updated_at: ''
+        })),
+        meta: {
+          total: response.data.total,
+          page: response.data.currentPage,
+          limit: filters?.limit || 20,
+          totalPages: response.data.totalPages
+        }
+      };
 
-// Mock user data for development
-const MOCK_USER: User = {
-  id: '1',
-  name: 'Admin User',
-  email: 'admin@example.com',
-  role: 'admin',
-  status: 'active',
-  department: 'Management',
-  permissions: [
-    'view:dashboard',
-    'view:hotels',
-    'view:bookings',
-    'view:guests',
-    'view:contacts',
-    'view:tickets',
-    'view:finance',
-    'manage:users'
-  ],
-  createdAt: new Date().toISOString(),
-  lastActive: new Date().toISOString()
+      console.log('Hotels response:', {
+        status: response.status,
+        totalHotels: mappedResponse.meta.total,
+        pageSize: mappedResponse.meta.limit,
+        currentPage: mappedResponse.meta.page,
+        hotelCount: mappedResponse.data.length,
+        firstHotel: mappedResponse.data[0]
+      });
+      
+      return mappedResponse;
+    } catch (error) {
+      console.error('Error fetching hotels:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('API Error details:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          config: error.config
+        });
+      }
+      throw error;
+    }
+  },
+  getHotel: (id: number) => api.get<Hotel>(`/hotels/${id}`).then(res => res.data),
+  createHotel: (data: Partial<Hotel>) => api.post<Hotel>('/hotels', data).then(res => res.data),
+  updateHotel: (id: number, data: Partial<Hotel>) => api.put<Hotel>(`/hotels/${id}`, data).then(res => res.data),
+  deleteHotel: (id: number) => api.delete(`/hotels/${id}`).then(res => res.data),
+  getLocations: () => api.get<Location[]>('/hotels/locations').then(res => res.data),
+  getSegments: () => api.get<Segment[]>('/hotels/segments').then(res => res.data),
+  getSalesProcesses: () => api.get<SalesProcess[]>('/hotels/sales-processes').then(res => res.data)
 };
 
-// Mock data for development
+export interface BookingFilters extends Partial<Booking> {
+  limit?: number;
+  guestName?: string;
+  checkInFrom?: string;
+  checkInTo?: string;
+  checkOutFrom?: string;
+  checkOutTo?: string;
+}
+
+// Mock data for development (excluding hotels)
 const MOCK_DATA = {
   bookings: Array.from({ length: 10 }, (_, i) => ({
     id: `b${i + 1}`,
@@ -129,161 +288,38 @@ const MOCK_DATA = {
   }))
 };
 
-// Create axios instance with base configuration
-export const api = axios.create({
-  baseURL: BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Set token if it exists in localStorage
-const token = localStorage.getItem('access_token');
-if (token) {
-  api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-}
-
-// Add request interceptor for authentication
-api.interceptors.request.use(
-  (config) => {
-    // Use hotels token for hotels API, regular token for other endpoints
-    const token = config.url?.includes('/hotels') 
-      ? localStorage.getItem('hotels_access_token')
-      : localStorage.getItem('access_token');
-      
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    console.log('API Request:', {
-      url: config.url,
-      method: config.method,
-      params: config.params,
-      headers: config.headers
-    });
-    return config;
-  },
-  (error) => {
-    console.error('API Request Error:', error);
-    return Promise.reject(error);
-  }
-);
-
-// Add response interceptor for error handling
-api.interceptors.response.use(
-  (response) => {
-    console.log('API Response:', {
-      url: response.config.url,
-      status: response.status,
-      data: response.data
-    });
-    return response;
-  },
-  (error) => {
-    console.error('API Response Error:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message
-    });
-    return Promise.reject(error);
-  }
-);
-
-// Auth endpoints
-export const auth = {
-  login: async (email: string, password: string): Promise<AuthResponse> => {
-    try {
-      // Always use production credentials for hotels API
-      if (email === 'admin@hotelonline.co' && password === 'admin123') {
-        const response = await api.post<AuthResponse>('/auth/login', {
-          email,
-          password
-        });
-        console.log('Login response:', response.data);
-        if (response.data.access_token) {
-          localStorage.setItem('access_token', response.data.access_token);
-          // Set the token in axios headers immediately
-          api.defaults.headers.common['Authorization'] = `Bearer ${response.data.access_token}`;
-          return response.data;
-        }
-        throw new Error('No access token received');
-      }
-      throw new Error('Invalid credentials');
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  },
-  logout: () => {
-    localStorage.removeItem('access_token');
-    // Remove token from axios headers
-    delete api.defaults.headers.common['Authorization'];
-  },
+// Mock user for development
+const MOCK_USER = {
+  id: 1,
+  username: 'admin',
+  email: 'admin@example.com',
+  job_title: 'Administrator',
+  role: 'admin',
+  contact_id: null,
+  points: 0,
+  title: null,
+  is_approved: true,
+  room_type_preferences: null
 };
 
-// Hotel service
-export const hotelService = {
-  getHotels: async (page = 1, filters?: HotelFilters): Promise<PaginatedResponse<Hotel>> => {
-    // Always use real API for hotels
-    const response = await api.get<PaginatedResponse<Hotel>>('/hotels', { 
-      params: { 
-        page, 
-        ...filters,
-        limit: filters?.limit || 20
-      } 
-    });
-    return response.data;
-  },
-  
-  getLocations: async (): Promise<string[]> => {
-    const response = await api.get<string[]>('/hotels/locations');
-    return response.data;
-  },
-
-  getSegments: async (): Promise<string[]> => {
-    // Always use real API for segments
-    const response = await api.get<string[]>('/hotels/segments');
-    return response.data;
-  },
-
-  getSalesProcesses: async (): Promise<string[]> => {
-    // Always use real API for sales processes
-    interface SalesProcess {
-      id: number;
-      name: string;
-      description: string | null;
-      created_at: string;
-      updated_at: string;
-    }
-    const response = await api.get<SalesProcess[]>('/hotels/sales-processes');
-    return response.data
-      .sort((a, b) => a.id - b.id)
-      .map(process => process.name);
-  },
-};
-
-export interface BookingFilters extends Partial<Booking> {
-  limit?: number;
-  guestName?: string;
-  checkInFrom?: string;
-  checkInTo?: string;
-  checkOutFrom?: string;
-  checkOutTo?: string;
-}
-
-// Booking service
+// Booking service (Mock)
 export const bookingService = {
   getBookings: async (page = 1, filters?: BookingFilters): Promise<PaginatedResponse<Booking>> => {
-    if (IS_DEV) {
-      return {
-        data: MOCK_DATA.bookings,
+    return {
+      data: MOCK_DATA.bookings,
+      meta: {
         total: MOCK_DATA.bookings.length,
-        pages: Math.ceil(MOCK_DATA.bookings.length / (filters?.limit || 10))
-      };
-    }
-    const response = await api.get<PaginatedResponse<Booking>>('/bookings', { params: { page, ...filters } });
-    return response.data;
+        page: page,
+        limit: filters?.limit || 10,
+        totalPages: Math.ceil(MOCK_DATA.bookings.length / (filters?.limit || 10))
+      }
+    };
   },
+  getBooking: async (id: string): Promise<Booking> => {
+    const booking = MOCK_DATA.bookings.find(b => b.id === id);
+    if (!booking) throw new Error('Booking not found');
+    return booking;
+  }
 };
 
 export interface GuestFilters {
@@ -294,28 +330,24 @@ export interface GuestFilters {
   minBookings?: string;
 }
 
-// Guest service
+// Guest service (Mock)
 export const guestService = {
   getGuests: async (page = 1, filters?: GuestFilters): Promise<PaginatedResponse<Guest>> => {
-    if (IS_DEV) {
-      return {
-        data: MOCK_DATA.guests,
+    return {
+      data: MOCK_DATA.guests,
+      meta: {
         total: MOCK_DATA.guests.length,
-        pages: Math.ceil(MOCK_DATA.guests.length / (filters?.limit || 10))
-      };
-    }
-    const response = await api.get<PaginatedResponse<Guest>>('/guests', { params: { page, ...filters } });
-    return response.data;
+        page: page,
+        limit: filters?.limit || 10,
+        totalPages: Math.ceil(MOCK_DATA.guests.length / (filters?.limit || 10))
+      }
+    };
   },
   getGuest: async (id: string): Promise<Guest> => {
-    if (IS_DEV) {
-      const guest = MOCK_DATA.guests.find(g => g.id === id);
-      if (!guest) throw new Error('Guest not found');
-      return guest;
-    }
-    const response = await api.get<Guest>(`/guests/${id}`);
-    return response.data;
-  },
+    const guest = MOCK_DATA.guests.find(g => g.id === id);
+    if (!guest) throw new Error('Guest not found');
+    return guest;
+  }
 };
 
 export interface ContactFilters extends Partial<Contact> {
@@ -325,34 +357,44 @@ export interface ContactFilters extends Partial<Contact> {
   lastInteractionTo?: string;
 }
 
-// Contact service
+// Contact service (Mock)
 export const contactService = {
   getContacts: async (page = 1, filters?: ContactFilters): Promise<PaginatedResponse<Contact>> => {
-    if (IS_DEV) {
-      return {
-        data: MOCK_DATA.contacts,
+    return {
+      data: MOCK_DATA.contacts,
+      meta: {
         total: MOCK_DATA.contacts.length,
-        pages: Math.ceil(MOCK_DATA.contacts.length / (filters?.limit || 10))
-      };
-    }
-    const response = await api.get<PaginatedResponse<Contact>>('/contacts', { params: { page, ...filters } });
-    return response.data;
+        page: page,
+        limit: filters?.limit || 10,
+        totalPages: Math.ceil(MOCK_DATA.contacts.length / (filters?.limit || 10))
+      }
+    };
   },
+  getContact: async (id: string): Promise<Contact> => {
+    const contact = MOCK_DATA.contacts.find(c => c.id === id);
+    if (!contact) throw new Error('Contact not found');
+    return contact;
+  }
 };
 
-// Ticket service
+// Ticket service (Mock)
 export const ticketService = {
   getTickets: async (page = 1, filters?: TicketFilters): Promise<PaginatedResponse<Ticket>> => {
-    if (IS_DEV) {
-      return {
-        data: MOCK_DATA.tickets,
+    return {
+      data: MOCK_DATA.tickets,
+      meta: {
         total: MOCK_DATA.tickets.length,
-        pages: Math.ceil(MOCK_DATA.tickets.length / (filters?.limit || 10))
-      };
-    }
-    const response = await api.get<PaginatedResponse<Ticket>>('/tickets', { params: { page, ...filters } });
-    return response.data;
+        page: page,
+        limit: filters?.limit || 10,
+        totalPages: Math.ceil(MOCK_DATA.tickets.length / (filters?.limit || 10))
+      }
+    };
   },
+  getTicket: async (id: string): Promise<Ticket> => {
+    const ticket = MOCK_DATA.tickets.find(t => t.id === id);
+    if (!ticket) throw new Error('Ticket not found');
+    return ticket;
+  }
 };
 
 export interface TransactionFilters extends Partial<Transaction> {
@@ -361,57 +403,55 @@ export interface TransactionFilters extends Partial<Transaction> {
   dateTo?: string;
 }
 
-// Finance service
+// Finance service (Mock)
 export const financeService = {
   getTransactions: async (page = 1, filters?: TransactionFilters): Promise<PaginatedResponse<Transaction>> => {
-    if (IS_DEV) {
-      return {
-        data: MOCK_DATA.transactions,
-        total: MOCK_DATA.transactions.length,
-        pages: Math.ceil(MOCK_DATA.transactions.length / (filters?.limit || 10))
-      };
-    }
-    const response = await api.get<PaginatedResponse<Transaction>>('/transactions', { params: { page, ...filters } });
-    return response.data;
-  },
-  getHotelBalances: async (page = 1): Promise<PaginatedResponse<HotelBalance>> => {
-    if (IS_DEV) {
-      return {
-        data: MOCK_DATA.hotelBalances,
-        total: MOCK_DATA.hotelBalances.length,
-        pages: Math.ceil(MOCK_DATA.hotelBalances.length / 10)
-      };
-    }
-    const response = await api.get<PaginatedResponse<HotelBalance>>('/hotel-balances', { params: { page } });
-    return response.data;
-  },
-};
-
-// User service
-export const userService = {
-  getUsers: async (_page = 1, _filters?: UserFilters): Promise<PaginatedResponse<User>> => {
-    // Always use mock data for users
     return {
-      data: [MOCK_USER],
-      total: 1,
-      pages: 1
+      data: MOCK_DATA.transactions,
+      meta: {
+        total: MOCK_DATA.transactions.length,
+        page: page,
+        limit: filters?.limit || 10,
+        totalPages: Math.ceil(MOCK_DATA.transactions.length / (filters?.limit || 10))
+      }
     };
   },
-  getCurrentUser: async (): Promise<User> => {
-    // Always return mock user
-    console.log('Using mock user data');
-    return MOCK_USER;
-  },
+  getHotelBalances: async (page = 1): Promise<PaginatedResponse<HotelBalance>> => {
+    return {
+      data: MOCK_DATA.hotelBalances,
+      meta: {
+        total: MOCK_DATA.hotelBalances.length,
+        page: page,
+        limit: 10,
+        totalPages: Math.ceil(MOCK_DATA.hotelBalances.length / 10)
+      }
+    };
+  }
 };
 
-// Add the interface for segment response
-interface ApiSegment {
-  id: number;
-  name: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// User service (Real API)
+export const userService = {
+  getUsers: (filters?: UserFilters) => 
+    api.get<PaginatedResponse<User>>('/users', { params: filters }).then(res => res.data),
+  
+  getUser: (id: number) => 
+    api.get<User>(`/users/${id}`).then(res => res.data),
+  
+  updateUser: (id: number, data: UpdateUserInput) => 
+    api.put<User>(`/users/${id}`, data).then(res => res.data),
+  
+  createUser: (data: CreateUserInput) => 
+    api.post<User>('/users', data).then(res => res.data),
+  
+  approveUser: (id: number) => 
+    api.post<void>(`/users/${id}/approve`).then(res => res.data),
+  
+  resetPassword: (id: number) => 
+    api.post<void>(`/users/${id}/reset-password`).then(res => res.data),
+  
+  getCurrentUser: () => 
+    api.get<User>('/users/me').then(res => res.data),
+};
 
 // Export all services
 export const apiService = {

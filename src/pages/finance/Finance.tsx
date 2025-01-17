@@ -61,8 +61,8 @@ export default function Finance() {
                 ))}
               </select>
               <span className="text-sm text-gray-600">
-                Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, transactionsData?.total || 0)} of{' '}
-                <span className="font-medium">{transactionsData?.total || 0}</span> results
+                Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, transactionsData?.meta.total || 0)} of{' '}
+                <span className="font-medium">{transactionsData?.meta.total || 0}</span> results
               </span>
             </div>
             <div className="flex gap-2">
@@ -75,7 +75,7 @@ export default function Finance() {
               </button>
               <button
                 onClick={() => setPage(p => p + 1)}
-                disabled={page >= (transactionsData?.pages || 1)}
+                disabled={page >= (transactionsData?.meta.totalPages || 1)}
                 className="rounded bg-indigo-600 px-3 py-1 text-white disabled:opacity-50"
               >
                 Next

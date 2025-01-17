@@ -13,13 +13,28 @@ export type EntityType = 'booking' | 'guest' | 'hotel' | 'contact';
 // Response Types
 export interface PaginatedResponse<T> {
   data: T[];
-  total: number;
-  pages: number;
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 export interface AuthResponse {
-  access_token: string;
-  token_type: string;
+  token: string;
+  user: {
+    id: number;
+    username: string;
+    email: string;
+    job_title: string;
+    role: string;
+    contact_id: number | null;
+    points: number;
+    title: string | null;
+    is_approved: boolean;
+    room_type_preferences: string | null;
+  };
 }
 
 // Entity Types
@@ -117,18 +132,28 @@ export interface Guest {
 }
 
 export interface Hotel {
-  id: string;
+  id: number;
   name: string;
   location: string;
-  reviews: number;
-  rating: number;
-  segment: Segment;
-  salesStage: SalesStage;
-  activities?: Activity[];
-  contracts?: Contract[];
-  distribution?: Distribution[];
-  tasks?: Task[];
-  campaign?: Campaign;
+  sub_location: string | null;
+  address: string | null;
+  description: string | null;
+  google_review_score: number | null;
+  google_number_of_reviews: number | null;
+  market: string | null;
+  hotel_website: string | null;
+  segment_id: number | null;
+  sales_process_id: number;
+  segment: {
+    id: number;
+    name: string;
+  } | null;
+  sales_process: {
+    id: number;
+    name: string;
+    description: string | null;
+    stage: string | null;
+  } | null;
 }
 
 export interface Activity {
@@ -228,10 +253,27 @@ export interface UserFilters {
   department?: string;
 }
 
+export enum SortDirection {
+  ASC = 'ASC',
+  DESC = 'DESC'
+}
+
+export enum SortField {
+  NAME = 'name',
+  LOCATION = 'location',
+  REVIEWS = 'google_number_of_reviews',
+  RATING = 'google_review_score',
+  SEGMENT = 'segment',
+  SALES_STAGE = 'sales_process'
+}
+
 export interface HotelFilters {
+  page?: number;
   limit?: number;
   search?: string;
   location?: string;
-  segment?: Segment | '';
-  salesStage?: SalesStage | '';
+  segment?: string;
+  salesStage?: string;
+  sortBy?: 'name' | 'location' | 'google_number_of_reviews' | 'google_review_score' | 'sales_process';
+  sortDirection?: 'ASC' | 'DESC';
 }

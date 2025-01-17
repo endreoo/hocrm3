@@ -229,8 +229,8 @@ export default function Guests() {
               <span className="text-sm text-gray-700">entries</span>
             </div>
             <span className="text-sm text-gray-600">
-              Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, guestsData?.total || 0)} of{' '}
-              <span className="font-medium">{guestsData?.total || 0}</span> results
+              Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, guestsData?.meta.total || 0)} of{' '}
+              <span className="font-medium">{guestsData?.meta.total || 0}</span> results
             </span>
             <div className="flex space-x-2">
               <button
@@ -242,7 +242,7 @@ export default function Guests() {
               </button>
               <button
                 onClick={() => setPage(p => p + 1)}
-                disabled={page >= (guestsData?.pages || 1) || isLoading}
+                disabled={page >= (guestsData?.meta.totalPages || 1) || isLoading}
                 className="rounded bg-indigo-600 px-3 py-1 text-white disabled:opacity-50"
               >
                 Next

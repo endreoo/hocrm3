@@ -1,35 +1,49 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { auth, userService } from '../services/api';
-import type { User } from '../types';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User } from '../types';
+import { auth } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  hasPermission: (permission: string) => boolean;
-  hasAnyPermission: (permissions: string[]) => boolean;
-  hasAllPermissions: (permissions: string[]) => boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  register: (data: Partial<User>) => Promise<void>;
+  updateProfile: (data: Partial<User>) => Promise<void>;
+  hasPermission: (permission: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing token and validate
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      userService.getCurrentUser().then(setUser);
-    }
+    const initAuth = async () => {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        try {
+          const userData = await auth.getProfile();
+          setUser(userData);
+        } catch (error) {
+          console.error('Failed to get user profile:', error);
+          auth.logout();
+        }
+      }
+      setIsLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { access_token } = await auth.login(email, password);
-    if (access_token) {
-      const user = await userService.getCurrentUser();
-      setUser(user);
+    try {
+      const response = await auth.login(email, password);
+      setUser(response.user);
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
     }
   };
 
@@ -38,37 +52,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const register = async (data: Partial<User>) => {
+    try {
+      const response = await auth.register(data);
+      setUser(response.user);
+    } catch (error) {
+      console.error('Registration failed:', error);
+      throw error;
+    }
+  };
+
+  const updateProfile = async (data: Partial<User>) => {
+    try {
+      const updatedUser = await auth.updateProfile(data);
+      setUser(updatedUser);
+    } catch (error) {
+      console.error('Profile update failed:', error);
+      throw error;
+    }
+  };
+
   const hasPermission = (permission: string): boolean => {
-    return user?.permissions.includes(permission) || false;
+    if (!user) return false;
+    
+    // Admin has all permissions
+    if (user.role === 'admin') return true;
+
+    // Map permissions to roles
+    const rolePermissions: Record<string, string[]> = {
+      admin: ['view:hotels', 'view:contacts', 'view:bookings', 'view:guests', 'view:finance', 'view:tickets', 'manage:users'],
+      user: ['view:hotels', 'view:contacts', 'view:bookings', 'view:guests']
+    };
+
+    return rolePermissions[user.role]?.includes(permission) || false;
   };
 
-  const hasAnyPermission = (permissions: string[]): boolean => {
-    return permissions.some(p => hasPermission(p));
-  };
-
-  const hasAllPermissions = (permissions: string[]): boolean => {
-    return permissions.every(p => hasPermission(p));
+  const value = {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    login,
+    logout,
+    register,
+    updateProfile,
+    hasPermission
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      isAuthenticated: !!user,
-      hasPermission,
-      hasAnyPermission,
-      hasAllPermissions,
-      login,
-      logout
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+};

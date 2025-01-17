@@ -1,23 +1,23 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { hotelService } from '../../services/api';
-import type { Hotel, SalesStage, HotelFilters } from '../../types';
+import type { Hotel, Location, Segment, SalesProcess } from '../../types';
+import { HotelFilters, SortDirection, SortField } from '../../types';
 import HotelModal from '../../components/hotels/HotelModal';
 import { Building2, Filter, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 type PageSize = typeof PAGE_SIZE_OPTIONS[number];
-type SortField = 'name' | 'location' | 'reviews' | 'rating' | 'segment' | 'salesStage';
-type SortDirection = 'asc' | 'desc';
 
 export default function Hotels() {
   const [selectedHotel, setSelectedHotel] = useState<Hotel | null>(null);
-  const [filters, setFilters] = useState<HotelFilters>({});
+  const [filters, setFilters] = useState<HotelFilters>({
+    page: 1,
+    limit: 20 as PageSize,
+    order: 'ASC',
+    sortBy: 'name'
+  });
   const [showFilters, setShowFilters] = useState(false);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState<PageSize>(20);
-  const [sortField, setSortField] = useState<SortField>('name');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [locationSearch, setLocationSearch] = useState('');
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
   const [isSegmentDropdownOpen, setIsSegmentDropdownOpen] = useState(false);
@@ -25,36 +25,27 @@ export default function Hotels() {
   const segmentDropdownRef = useRef<HTMLDivElement>(null);
 
   // Query for locations
-  const { data: locations = [] } = useQuery({
+  const { data: locations = [], isLoading: isLoadingLocations } = useQuery<Location[]>({
     queryKey: ['hotelLocations'],
     queryFn: () => hotelService.getLocations(),
   });
 
   // Query for segments
-  const { data: segments = [], isLoading: isLoadingSegments, error: segmentsError } = useQuery({
+  const { data: segments = [], isLoading: isLoadingSegments, error: segmentsError } = useQuery<Segment[]>({
     queryKey: ['hotelSegments'],
     queryFn: () => hotelService.getSegments(),
   });
 
   // Query for sales processes
-  const { data: salesProcesses = [], isLoading: isLoadingSalesProcesses, error: salesProcessesError } = useQuery({
+  const { data: salesProcesses = [], isLoading: isLoadingSalesProcesses, error: salesProcessesError } = useQuery<SalesProcess[]>({
     queryKey: ['hotelSalesProcesses'],
     queryFn: () => hotelService.getSalesProcesses(),
   });
 
-  // Log segments data for debugging
-  useEffect(() => {
-    if (segmentsError) {
-      console.error('Segments error:', segmentsError);
-    } else if (segments.length > 0) {
-      console.log('Current segments:', segments);
-    }
-  }, [segments, segmentsError]);
-
   // Filter locations based on search
-  const filteredLocations = locations.filter(location =>
-    location.toLowerCase().includes(locationSearch.toLowerCase())
-  );
+  const filteredLocations = locations?.filter(location =>
+    location?.name?.toLowerCase().includes(locationSearch?.toLowerCase() || '')
+  ) || [];
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -71,49 +62,64 @@ export default function Hotels() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleFilterChange = (key: keyof HotelFilters, value: string) => {
+  const handleFilterChange = (key: keyof HotelFilters, value: string | number) => {
+    console.log('Filter change:', key, value);
     if (value === '') {
       const newFilters = { ...filters };
       delete newFilters[key];
       setFilters(newFilters);
+      console.log('Updated filters after removal:', newFilters);
     } else {
-      setFilters((prev: HotelFilters) => ({
-        ...prev,
-        [key]: value
-      }));
+      setFilters((prev: HotelFilters) => {
+        const newFilters = {
+          ...prev,
+          page: 1,
+          [key]: value
+        };
+        console.log('Updated filters:', newFilters);
+        return newFilters;
+      });
     }
-    setPage(1);
   };
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      // Toggle between asc and desc only
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-    setPage(1);
+  const handleSort = (field: string) => {
+    setFilters(prev => ({
+      ...prev,
+      page: 1,
+      sortBy: field,
+      order: prev.order === 'ASC' ? 'DESC' : 'ASC'
+    }));
   };
 
-  const getSortIcon = (field: SortField) => {
-    if (sortField !== field) {
+  const getSortIcon = (field: string) => {
+    if (filters.sortBy !== field) {
       return <ArrowUpDown className="h-4 w-4 text-gray-400" />;
     }
-    return sortDirection === 'asc' 
+    return filters.order === 'ASC'
       ? <ArrowUp className="h-4 w-4 text-indigo-600" />
       : <ArrowDown className="h-4 w-4 text-indigo-600" />;
   };
 
+  // Update query to use the new filters directly
   const { data: hotelsData, isLoading, error } = useQuery({
-    queryKey: ['hotels', page, pageSize, filters, sortField, sortDirection],
-    queryFn: () => hotelService.getHotels(page, { 
-      ...filters, 
-      limit: pageSize,
-      sortBy: sortField,
-      sortDirection
-    }),
+    queryKey: ['hotels', filters],
+    queryFn: () => hotelService.getHotels(filters),
   });
+
+  console.log('=== Hotels Component Debug Logs ===');
+  console.log('Query state:', {
+    isLoading,
+    hasError: !!error,
+    hasData: !!hotelsData,
+    totalHotels: hotelsData?.meta?.total,
+    hotelCount: hotelsData?.data?.length,
+    currentFilters: filters,
+    firstHotel: hotelsData?.data?.[0]
+  });
+
+  if (error) {
+    console.error('Hotels query error:', error);
+  }
 
   return (
     <div className="px-6 py-6">
@@ -175,15 +181,15 @@ export default function Hotels() {
                   </div>
                   {filteredLocations.map(location => (
                     <div
-                      key={location}
+                      key={location.id}
                       className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                       onClick={() => {
-                        handleFilterChange('location', location);
+                        handleFilterChange('location', location.name);
                         setIsLocationDropdownOpen(false);
                         setLocationSearch('');
                       }}
                     >
-                      {location}
+                      {location.name}
                     </div>
                   ))}
                 </div>
@@ -197,7 +203,7 @@ export default function Hotels() {
               onClick={() => setIsSegmentDropdownOpen(!isSegmentDropdownOpen)}
             >
               <span className="text-gray-700">
-                {filters.segment || 'All Segments'}
+                {filters.segment_id ? segments.find(s => s.id === filters.segment_id)?.name : 'All Segments'}
               </span>
               <ChevronRight className={`h-4 w-4 transition-transform ${isSegmentDropdownOpen ? 'rotate-90' : ''}`} />
             </div>
@@ -214,7 +220,7 @@ export default function Hotels() {
                       <div
                         className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                         onClick={() => {
-                          handleFilterChange('segment', '');
+                          handleFilterChange('segment_id', '');
                           setIsSegmentDropdownOpen(false);
                         }}
                       >
@@ -222,14 +228,14 @@ export default function Hotels() {
                       </div>
                       {segments.map(segment => (
                         <div
-                          key={segment}
+                          key={segment.id}
                           className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
                           onClick={() => {
-                            handleFilterChange('segment', segment);
+                            handleFilterChange('segment_id', segment.id);
                             setIsSegmentDropdownOpen(false);
                           }}
                         >
-                          {segment}
+                          {segment.name}
                         </div>
                       ))}
                     </>
@@ -240,8 +246,8 @@ export default function Hotels() {
           </div>
 
           <select
-            value={(filters.salesStage as SalesStage) || ''}
-            onChange={e => handleFilterChange('salesStage', e.target.value)}
+            value={filters.sales_process_id || ''}
+            onChange={e => handleFilterChange('sales_process_id', Number(e.target.value))}
             className="px-3 py-2 border rounded-md min-w-[200px]"
           >
             <option value="">All Sales Stages</option>
@@ -251,7 +257,7 @@ export default function Hotels() {
               <option disabled>Error loading sales stages</option>
             ) : (
               salesProcesses.map(stage => (
-                <option key={stage} value={stage}>{stage}</option>
+                <option key={stage.id} value={stage.id}>{stage.name}</option>
               ))
             )}
           </select>
@@ -288,72 +294,72 @@ export default function Hotels() {
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort('name')}
+                      onClick={() => handleSort(SortField.NAME)}
                     >
                       <div className="flex items-center gap-2">
                         Name
                         <span className="invisible group-hover:visible">
-                          {getSortIcon('name')}
+                          {getSortIcon(SortField.NAME)}
                         </span>
                       </div>
                     </th>
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort('location')}
+                      onClick={() => handleSort(SortField.LOCATION)}
                     >
                       <div className="flex items-center gap-2">
                         Location
                         <span className="invisible group-hover:visible">
-                          {getSortIcon('location')}
+                          {getSortIcon(SortField.LOCATION)}
                         </span>
                       </div>
                     </th>
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort('reviews')}
+                      onClick={() => handleSort(SortField.REVIEWS)}
                     >
                       <div className="flex items-center gap-2">
                         Reviews
                         <span className="invisible group-hover:visible">
-                          {getSortIcon('reviews')}
+                          {getSortIcon(SortField.REVIEWS)}
                         </span>
                       </div>
                     </th>
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort('rating')}
+                      onClick={() => handleSort(SortField.RATING)}
                     >
                       <div className="flex items-center gap-2">
                         Rating
                         <span className="invisible group-hover:visible">
-                          {getSortIcon('rating')}
+                          {getSortIcon(SortField.RATING)}
                         </span>
                       </div>
                     </th>
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort('segment')}
+                      onClick={() => handleSort(SortField.SEGMENT)}
                     >
                       <div className="flex items-center gap-2">
                         Segment
                         <span className="invisible group-hover:visible">
-                          {getSortIcon('segment')}
+                          {getSortIcon(SortField.SEGMENT)}
                         </span>
                       </div>
                     </th>
                     <th 
                       scope="col" 
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider truncate cursor-pointer group"
-                      onClick={() => handleSort('salesStage')}
+                      onClick={() => handleSort(SortField.SALES_STAGE)}
                     >
                       <div className="flex items-center gap-2">
                         Sales Stage
                         <span className="invisible group-hover:visible">
-                          {getSortIcon('salesStage')}
+                          {getSortIcon(SortField.SALES_STAGE)}
                         </span>
                       </div>
                     </th>
@@ -373,27 +379,27 @@ export default function Hotels() {
                         {hotel.location}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500 truncate">
-                        {hotel.reviews}
+                        {hotel.google_number_of_reviews || 'No reviews'}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center">
-                          <span className="text-sm text-gray-900 mr-1">{hotel.rating}</span>
-                          <span className="text-yellow-400">★</span>
+                          <span className="text-sm text-gray-900 mr-1">{hotel.google_review_score || 'N/A'}</span>
+                          {hotel.google_review_score && <span className="text-yellow-400">★</span>}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {hotel.segment?.name || 'N/A'}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                          {hotel.segment}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          hotel.salesStage === 'active' ? 'bg-green-100 text-green-800' :
-                          hotel.salesStage === 'negotiation' ? 'bg-yellow-100 text-yellow-800' :
-                          hotel.salesStage === 'prospect' ? 'bg-purple-100 text-purple-800' :
+                          hotel.sales_process?.stage === 'active' ? 'bg-green-100 text-green-800' :
+                          hotel.sales_process?.stage === 'negotiation' ? 'bg-yellow-100 text-yellow-800' :
+                          hotel.sales_process?.stage === 'prospect' ? 'bg-purple-100 text-purple-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {hotel.salesStage}
+                          {hotel.sales_process?.name || 'Not Started'}
                         </span>
                       </td>
                     </tr>
@@ -406,10 +412,12 @@ export default function Hotels() {
           <div className="bg-white border border-gray-200 px-4 py-3 rounded-lg flex items-center justify-between">
             <div className="flex items-center gap-4">
               <select
-                value={pageSize}
+                value={filters.limit}
                 onChange={(e) => {
-                  setPageSize(Number(e.target.value) as PageSize);
-                  setPage(1);
+                  setFilters(prev => ({
+                    ...prev,
+                    limit: Number(e.target.value) as PageSize
+                  }));
                 }}
                 className="rounded-md border-gray-300 text-sm"
               >
@@ -419,21 +427,24 @@ export default function Hotels() {
               </select>
               <span className="text-sm text-gray-700">
                 Showing{' '}
-                <span className="font-medium">{((page - 1) * pageSize) + 1}</span>
+                <span className="font-medium">{((filters.page || 1) - 1) * (filters.limit || 20) + 1}</span>
                 {' '}-{' '}
                 <span className="font-medium">
-                  {Math.min(page * pageSize, hotelsData?.total || 0)}
+                  {Math.min((filters.page || 1) * (filters.limit || 20), hotelsData?.meta.total || 0)}
                 </span>
                 {' '}of{' '}
-                <span className="font-medium">{hotelsData?.total || 0}</span>
+                <span className="font-medium">{hotelsData?.meta.total || 0}</span>
                 {' '}results
               </span>
             </div>
 
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
+                onClick={() => setFilters(prev => ({
+                  ...prev,
+                  page: Math.max(1, (prev.page || 1) - 1)
+                }))}
+                disabled={(filters.page || 1) === 1}
                 className="inline-flex items-center px-3 py-2 rounded-md border text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed
                   border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
               >
@@ -441,8 +452,14 @@ export default function Hotels() {
                 Previous
               </button>
               <button
-                onClick={() => setPage(p => p + 1)}
-                disabled={page * pageSize >= (hotelsData?.total || 0)}
+                onClick={() => setFilters(prev => ({
+                  ...prev,
+                  page: Math.min(
+                    Math.ceil((hotelsData?.meta.total || 0) / (prev.limit || 20)), 
+                    (prev.page || 1) + 1
+                  )
+                }))}
+                disabled={(filters.page || 1) * (filters.limit || 20) >= (hotelsData?.meta.total || 0)}
                 className="inline-flex items-center px-3 py-2 rounded-md border text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed
                   border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
               >

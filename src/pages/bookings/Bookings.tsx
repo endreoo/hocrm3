@@ -61,8 +61,8 @@ export default function Bookings() {
                 ))}
               </select>
               <span className="text-sm text-gray-600">
-                Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, bookingsData?.total || 0)} of{' '}
-                <span className="font-medium">{bookingsData?.total || 0}</span> results
+                Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, bookingsData?.meta.total || 0)} of{' '}
+                <span className="font-medium">{bookingsData?.meta.total || 0}</span> results
               </span>
             </div>
             <div className="flex gap-2">
@@ -75,7 +75,7 @@ export default function Bookings() {
               </button>
               <button
                 onClick={() => setPage(p => p + 1)}
-                disabled={page >= (bookingsData?.pages || 1)}
+                disabled={page >= (bookingsData?.meta.totalPages || 1)}
                 className="rounded bg-indigo-600 px-3 py-1 text-white disabled:opacity-50"
               >
                 Next

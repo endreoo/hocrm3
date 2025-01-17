@@ -36,7 +36,7 @@ export default function TicketModal({ ticket, onClose }: TicketModalProps) {
     queryKey: ['hotels', ticket.entities.hotels],
     queryFn: () => Promise.all(
       ticket.entities.hotels.map(id => 
-        hotelService.getHotels(1).then(res => res.data.find(h => h.id === id))
+        hotelService.getHotels({ page: 1, limit: 20 }).then(res => res.data.find(h => h.id === Number(id)))
       )
     ),
     enabled: ticket.entities.hotels.length > 0,

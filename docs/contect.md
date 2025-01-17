@@ -4,8 +4,23 @@
 
 ### Available APIs
 - Hotels API: `https://apiservice.hotelonline.co/api/hotels`
-  - This is the only real API endpoint available
   - Requires authentication token
+  - Available endpoints:
+    - `/hotels` - Get all hotels
+    - `/hotels/locations` - Get all unique locations
+    - `/hotels/segments` - Get all segments (Response format below)
+  - Segments response format:
+    ```json
+    [
+      {
+        "id": number,
+        "name": string,
+        "description": string | null,
+        "created_at": string,
+        "updated_at": string
+      }
+    ]
+    ```
 
 ### Development Mode
 For development, the system uses mock data for all services except hotels:
@@ -26,7 +41,7 @@ For development, the system uses mock data for all services except hotels:
 ### Development Setup
 1. Set `IS_DEV = true` in `src/services/api.ts` to use mock data for all services except hotels
 2. Use any email with password "password123" for login
-3. Hotels will still use the real API with the production credentials
+3. Hotels API (including locations and segments) will use the real API with the production credentials
 
 ### Production Setup
 1. Set `IS_DEV = false` in `src/services/api.ts`
