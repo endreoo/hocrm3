@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Users, Building2, Contact2, HelpCircle, DollarSign, LayoutDashboard, UserCog } from 'lucide-react';
+import { BookOpen, Users, Building2, Contact2, HelpCircle, DollarSign, LayoutDashboard, UserCog, Wrench } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocation } from '../../hooks/useLocation';
 
@@ -12,6 +12,7 @@ const getNavigation = (hasPermission: (permission: string) => boolean) => [
   ...(hasPermission('view:finance') ? [{ name: 'Finance', icon: DollarSign, href: '/finance' }] : []),
   ...(hasPermission('view:tickets') ? [{ name: 'Support', icon: HelpCircle, href: '/tickets' }] : []),
   ...(hasPermission('manage:users') ? [{ name: 'Users', icon: UserCog, href: '/users' }] : []),
+  ...(hasPermission('admin') ? [{ name: 'Tools', icon: Wrench, href: '/tools' }] : []),
 ];
 
 export default function Sidebar() {

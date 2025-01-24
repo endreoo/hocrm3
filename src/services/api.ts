@@ -19,7 +19,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
-  },
+  }
 });
 
 // Add request interceptor for authentication
@@ -82,16 +82,33 @@ export const auth = {
   login: async (email: string, password: string): Promise<AuthResponse> => {
     try {
       console.log('=== Login Debug Logs ===');
-      console.log('Login attempt:', { email });
-
-      const response = await api.post<AuthResponse>('/auth/login', {
+      console.log('Login attempt:', { 
         email,
-        password
+        baseURL: BASE_URL,
+        endpoint: '/auth/login'
+      });
+
+      const response = await axios({
+        method: 'post',
+        url: `${BASE_URL}/auth/login`,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Referer': 'http://37.27.142.148:5173/',
+          'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36',
+          'DNT': '1'
+        },
+        data: {
+          email,
+          password
+        }
       });
 
       console.log('Login response:', {
         status: response.status,
-        hasToken: !!response.data.token
+        statusText: response.statusText,
+        hasToken: !!response.data.token,
+        data: response.data
       });
 
       if (response.data.token) {
@@ -107,7 +124,13 @@ export const auth = {
         console.error('Login error details:', {
           status: error.response?.status,
           statusText: error.response?.statusText,
-          data: error.response?.data
+          data: error.response?.data,
+          config: {
+            url: error.config?.url,
+            baseURL: error.config?.baseURL,
+            headers: error.config?.headers,
+            data: error.config?.data
+          }
         });
       }
       throw error;
@@ -142,6 +165,7 @@ export const hotelService = {
     console.log('Request filters:', filters);
     try {
       const response = await api.get<HotelResponse>('/hotels', { params: filters });
+      console.log('API Response:', response.data);
       
       // Map API response to CRM expected structure
       const mappedResponse: PaginatedResponse<Hotel> = {
@@ -149,17 +173,27 @@ export const hotelService = {
           id: hotel.id,
           name: hotel.name,
           location: hotel.location,
-          segment: hotel.segment || { id: 0, name: '' },
-          sales_process: hotel.salesProcess ? {
-            id: hotel.salesProcess.id,
-            name: hotel.salesProcess.name,
-            stage: String(hotel.salesProcess.stage || '')
-          } : { id: 0, name: '', stage: '' },
-          status: 'active',
-          google_review_score: hotel.google_review_score || 0,
-          google_number_of_reviews: hotel.google_number_of_reviews || 0,
-          created_at: '',
-          updated_at: ''
+          sub_location: hotel.sub_location || null,
+          address: hotel.address || null,
+          description: hotel.description || null,
+          market: hotel.market || null,
+          hotel_website: hotel.hotel_website || null,
+          segment_id: hotel.segment?.id || null,
+          sales_process_id: hotel.sales_process?.id || 0,
+          ezee_hotel_id: hotel.ezee_hotel_id !== undefined ? hotel.ezee_hotel_id : null,
+          ezee_auth_key: hotel.ezee_auth_key !== undefined ? hotel.ezee_auth_key : null,
+          segment: hotel.segment || null,
+          sales_process: hotel.sales_process ? {
+            id: hotel.sales_process.id,
+            name: hotel.sales_process.name,
+            description: null,
+            stage: hotel.sales_process.stage || null
+          } : null,
+          google_review_score: hotel.google_review_score || null,
+          google_number_of_reviews: hotel.google_number_of_reviews || null,
+          status: hotel.status || 'active',
+          created_at: hotel.created_at,
+          updated_at: hotel.updated_at
         })),
         meta: {
           total: response.data.total,
@@ -169,15 +203,7 @@ export const hotelService = {
         }
       };
 
-      console.log('Hotels response:', {
-        status: response.status,
-        totalHotels: mappedResponse.meta.total,
-        pageSize: mappedResponse.meta.limit,
-        currentPage: mappedResponse.meta.page,
-        hotelCount: mappedResponse.data.length,
-        firstHotel: mappedResponse.data[0]
-      });
-      
+      console.log('Mapped response:', mappedResponse);
       return mappedResponse;
     } catch (error) {
       console.error('Error fetching hotels:', error);
@@ -202,9 +228,61 @@ export const hotelService = {
   },
   deleteHotels: async (ids: number[]) => {
     console.log('Deleting hotels:', ids);
-    // Delete hotels in parallel
     await Promise.all(ids.map(id => api.delete(`/hotels/${id}`)));
     return true;
+  },
+  mergeHotels: async (targetId: number, sourceIds: number[], fieldSelections?: (string[] | null)[]) => {
+    console.log('=== Merge Hotels API Call Debug Logs ===');
+    const url = `${BASE_URL}/hotels/merge`;
+    const data = {
+      targetId,
+      sourceIds,
+      fieldSelections
+    };
+    
+    console.log('API Endpoint:', url);
+    console.log('Request data:', JSON.stringify(data, null, 2));
+
+    try {
+      const response = await axios({
+        method: 'post',
+        url,
+        data,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        }
+      });
+      
+      console.log('Merge API Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: response.data
+      });
+      return response.data;
+    } catch (error: unknown) {
+      if (axios.isAxiosError(error)) {
+        console.error('Merge API Error:', {
+          endpoint: url,
+          error: error.message,
+          request: {
+            data,
+            headers: error.config?.headers,
+            baseURL: error.config?.baseURL,
+            url: error.config?.url,
+            method: error.config?.method,
+          },
+          response: {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data
+          }
+        });
+      } else {
+        console.error('Unexpected error during merge:', error);
+      }
+      throw error;
+    }
   },
   getLocations: () => api.get<Location[]>('/hotels/locations').then(res => res.data),
   getSegments: () => api.get<Segment[]>('/hotels/segments').then(res => res.data),
@@ -443,12 +521,12 @@ export const financeService = {
 export const userService = {
   getUsers: (filters?: UserFilters) => 
     api.get<UserResponse>('/users', { params: filters }).then(res => ({
-      data: res.data.users,
+      data: res.data.data.users,
       meta: {
-        total: res.data.total,
-        page: res.data.currentPage,
+        total: res.data.data.total,
+        page: res.data.data.currentPage,
         limit: filters?.limit || 10,
-        totalPages: res.data.totalPages
+        totalPages: res.data.data.totalPages
       }
     })),
   
@@ -471,6 +549,31 @@ export const userService = {
     api.get<User>('/users/me').then(res => res.data),
 };
 
+export interface ServiceStats {
+  service: string;
+  total_calls: number;
+  avg_response_time: string;
+  error_count: number;
+}
+
+export interface DashboardStats {
+  total_hotels: number;
+  hotels_with_ezee_id: number;
+  hotels_with_auth_key: number;
+  hotels_missing_auth_key: number;
+  hotels_missing_ezee_id: number;
+}
+
+// Dashboard service
+export const dashboardService = {
+  getStats: async () => {
+    console.log('=== Dashboard Stats Debug Logs ===');
+    const response = await api.get<DashboardStats>('/api/dashboard/hotel-stats');
+    console.log('Dashboard Stats:', response.data);
+    return response.data;
+  }
+};
+
 // Export all services
 export const apiService = {
   auth,
@@ -481,4 +584,39 @@ export const apiService = {
   ticketService,
   financeService,
   userService,
+  dashboardService,
 };
+
+interface HotelResponse {
+  hotels: Array<{
+    id: number;
+    name: string;
+    location: string;
+    sub_location: string | null;
+    address: string | null;
+    description: string | null;
+    market: string | null;
+    hotel_website: string | null;
+    ezee_hotel_id: string | null;
+    ezee_auth_key: string | null;
+    segment: { id: number; name: string } | null;
+    sales_process: { id: number; name: string; stage: string } | null;
+    status: 'active' | 'inactive';
+    google_review_score: number | null;
+    google_number_of_reviews: number | null;
+    created_at: string;
+    updated_at: string;
+  }>;
+  total: number;
+  currentPage: number;
+  totalPages: number;
+}
+
+interface UserResponse {
+  data: {
+    users: User[];
+    total: number;
+    currentPage: number;
+    totalPages: number;
+  }
+}

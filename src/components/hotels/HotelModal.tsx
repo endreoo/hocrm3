@@ -163,11 +163,30 @@ export default function HotelModal({ hotel, onClose }: HotelModalProps) {
           {/* Distribution Tab */}
           {activeTab === 'distribution' && (
             <div className="space-y-6">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-yellow-800">
-                  Distribution management will be available once the hotel is integrated with our system.
-                </p>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">eZee Integration</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">Hotel ID</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {hotel.ezee_hotel_id !== null ? String(hotel.ezee_hotel_id) : 'Not configured'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Auth Key</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {hotel.ezee_auth_key || 'Not configured'}
+                    </p>
+                  </div>
+                </div>
               </div>
+              {!hotel.ezee_hotel_id && !hotel.ezee_auth_key && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-yellow-800">
+                    This hotel is not yet integrated with eZee. Please configure the eZee credentials to enable distribution management.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>

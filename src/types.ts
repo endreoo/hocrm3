@@ -52,18 +52,28 @@ export interface Hotel {
   id: number;
   name: string;
   location: string;
+  sub_location: string | null;
+  address: string | null;
+  description: string | null;
+  google_review_score: number | null;
+  google_number_of_reviews: number | null;
+  market: string | null;
+  hotel_website: string | null;
+  segment_id: number | null;
+  sales_process_id: number | null;
+  ezee_hotel_id: string | null;
+  ezee_auth_key: string | null;
   segment: {
     id: number;
     name: string;
-  };
+  } | null;
   sales_process: {
     id: number;
     name: string;
-    stage: string;
-  };
+    description: string | null;
+    stage: string | null;
+  } | null;
   status: Status;
-  google_review_score?: number;
-  google_number_of_reviews?: number;
   created_at: string;
   updated_at: string;
 }
@@ -79,6 +89,7 @@ export interface HotelFilters {
   limit?: number;
   min_rating?: number;
   max_rating?: number;
+  ezee_hotel_id?: string | null;
 }
 
 // Common types

@@ -21,6 +21,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initAuth = async () => {
+      setIsLoading(true);
       const token = localStorage.getItem('access_token');
       if (token) {
         try {
@@ -34,14 +35,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     };
 
+    // Only run on mount
     initAuth();
-  }, []);
+  }, []); // Remove user dependency to prevent loops
 
   const login = async (email: string, password: string) => {
     try {
+      setIsLoading(true);
       const response = await auth.login(email, password);
-      setUser(response.user);
+      setUser(response.user); // Set user directly from login response
+      setIsLoading(false);
     } catch (error) {
+      setIsLoading(false);
       console.error('Login failed:', error);
       throw error;
     }
@@ -77,6 +82,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Admin has all permissions
     if (user.role === 'admin') return true;
+
+    // Special case for 'admin' permission - only admin role has it
+    if (permission === 'admin') return user.role === 'admin';
 
     // Map permissions to roles
     const rolePermissions: Record<string, string[]> = {

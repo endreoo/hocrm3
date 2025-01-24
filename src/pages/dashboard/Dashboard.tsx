@@ -4,33 +4,16 @@ import {
   TrendingUp, Star, Clock, Calendar,
   CheckCircle2, AlertTriangle, Contact2
 } from 'lucide-react';
-import { hotelService, bookingService, guestService, financeService } from '../../services/api';
+import { hotelService, bookingService, guestService, financeService, dashboardService } from '../../services/api';
+import type { Hotel } from '../../types';
 
 export default function Dashboard() {
-  // Fetch data from all services
-  const { data: hotelsData, isLoading: isLoadingHotels, error: hotelsError } = useQuery({
-    queryKey: ['hotels-dashboard'],
-    queryFn: async () => {
-      const response = await hotelService.getHotels();
-      console.log('Hotels API Response:', response);
-      return response;
-    },
+  // Fetch dashboard stats
+  const { data: dashboardStats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: () => dashboardService.getStats(),
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
   });
-
-  console.log('=== Dashboard Debug Logs ===');
-  console.log('Hotels Query State:', {
-    isLoading: isLoadingHotels,
-    hasError: !!hotelsError,
-    hasData: !!hotelsData,
-    totalHotels: hotelsData?.meta?.total,
-    hotelCount: hotelsData?.data?.length,
-    rawData: hotelsData
-  });
-
-  if (hotelsError) {
-    console.error('Hotels Query Error:', hotelsError);
-  }
 
   const { data: bookingsData } = useQuery({
     queryKey: ['bookings-dashboard'],
@@ -47,24 +30,26 @@ export default function Dashboard() {
     queryFn: () => financeService.getHotelBalances(1),
   });
 
+  const { data: hotelsData } = useQuery({
+    queryKey: ['hotels-dashboard'],
+    queryFn: () => hotelService.getHotels(),
+  });
+
   return (
     <div className="space-y-6">
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">
-                Total Hotels: <span className="font-medium">
-                  {isLoadingHotels ? (
-                    '...'
-                  ) : hotelsError ? (
-                    <span className="text-red-500">Error</span>
-                  ) : (
-                    hotelsData?.meta?.total ?? 0
-                  )}
-                </span>
-              </span>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Hotels</p>
+              <p className="text-2xl font-semibold text-gray-900">
+                {isLoadingStats ? (
+                  '...'
+                ) : (
+                  dashboardStats?.total_hotels ?? 0
+                )}
+              </p>
             </div>
             <div className="p-3 bg-indigo-100 rounded-full">
               <Building2 className="h-6 w-6 text-indigo-600" />
@@ -72,6 +57,28 @@ export default function Dashboard() {
           </div>
           <div className="mt-4 flex items-center text-sm text-gray-600">
             <TrendingUp className="h-4 w-4 mr-1 text-green-500" />
+            <span>Updated just now</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Connected to YCS</p>
+              <p className="text-2xl font-semibold text-gray-900">
+                {isLoadingStats ? (
+                  '...'
+                ) : (
+                  dashboardStats?.hotels_with_ezee_id ?? 0
+                )}
+              </p>
+            </div>
+            <div className="p-3 bg-green-100 rounded-full">
+              <CheckCircle2 className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm text-gray-600">
+            <Clock className="h-4 w-4 mr-1" />
             <span>Updated just now</span>
           </div>
         </div>
@@ -272,7 +279,7 @@ export default function Dashboard() {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {(hotelsData?.data || []).slice(0, 3).map((hotel) => (
+                {(hotelsData?.data || []).slice(0, 3).map((hotel: Hotel) => (
                   <div key={hotel.id} className="flex items-center justify-between">
                     <div className="flex items-center">
                       <Building2 className="h-5 w-5 text-gray-400 mr-3" />

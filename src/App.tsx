@@ -1,3 +1,4 @@
+import 'react-toastify/dist/ReactToastify.css';
 import Layout from './components/layout/Layout';
 import { useLocation } from './hooks/useLocation';
 import Dashboard from './pages/dashboard/Dashboard';
@@ -10,6 +11,7 @@ import Contacts from './pages/contacts/Contacts';
 import Tickets from './pages/tickets/Tickets';
 import Users from './pages/users/Users';
 import { useAuth } from './contexts/AuthContext';
+import Tools from './pages/tools/Tools';
 
 function getGuestIdFromPath(path: string): string | null {
   const match = path.match(/^\/guests\/([^/]+)$/);
@@ -25,7 +27,8 @@ function getComponent(pathname: string, guestId: string | null, hasPermission: (
     '/contacts': 'view:contacts',
     '/tickets': 'view:tickets',
     '/users': 'manage:users',
-    '/bookings': 'view:bookings'
+    '/bookings': 'view:bookings',
+    '/tools': 'admin'
   };
 
   const requiredPermission = routePermissions[pathname];
@@ -61,6 +64,8 @@ function getComponent(pathname: string, guestId: string | null, hasPermission: (
       return <Users />;
     case '/bookings':
       return <Bookings />;
+    case '/tools':
+      return <Tools />;
     default:
       return <Dashboard />;
   }
