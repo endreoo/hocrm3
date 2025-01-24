@@ -4,7 +4,8 @@ import { hotelService } from '../../services/api';
 import type { Hotel, Location, Segment, SalesProcess } from '../../types';
 import { HotelFilters, SortDirection, SortField } from '../../types';
 import HotelModal from '../../components/hotels/HotelModal';
-import { Building2, Filter, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, Trash2, CheckSquare, Square, X } from 'lucide-react';
+import { Building2, Filter, ChevronLeft, ChevronRight, ArrowUpDown, ArrowUp, ArrowDown, Search, Trash2, CheckSquare, Square, X, ArrowsUpFromLine } from 'lucide-react';
+import MergeModal from '../../components/hotels/MergeModal';
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 type PageSize = typeof PAGE_SIZE_OPTIONS[number];
@@ -73,6 +74,8 @@ export default function Hotels() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [hotelToDelete, setHotelToDelete] = useState<number | null>(null);
   const [showMassDeleteConfirmation, setShowMassDeleteConfirmation] = useState(false);
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [targetHotel, setTargetHotel] = useState<Hotel | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -232,33 +235,69 @@ export default function Hotels() {
     }
   };
 
+  const handleMergeClick = () => {
+    if (selectedHotels.size < 2) {
+      // Show error or notification that at least 2 hotels must be selected
+      return;
+    }
+    // First selected hotel will be the target
+    const selectedHotelsList = hotelsData?.data.filter(h => selectedHotels.has(h.id)) || [];
+    setTargetHotel(selectedHotelsList[0]);
+    setShowMergeModal(true);
+  };
+
   return (
     <div className="px-6 py-6">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Building2 className="h-6 w-6 text-indigo-600" />
-          <h1 className="text-2xl font-semibold text-gray-900">Hotels</h1>
+      {/* Title */}
+      <div className="flex items-center gap-2 mb-6">
+        <Building2 className="h-6 w-6 text-indigo-600" />
+        <h1 className="text-2xl font-semibold text-gray-900">Hotels</h1>
+      </div>
+
+      {/* Search and Filter Bar */}
+      <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
+        <div className="flex-1 min-w-[300px]">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search hotels..."
+              value={filters.search || ''}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          {selectedHotels.size > 0 && (
-            <button
-              onClick={handleMassDeleteClick}
-              className="inline-flex items-center px-4 py-2 rounded-md text-sm font-medium border border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Selected ({selectedHotels.size})
-            </button>
-          )}
-          <button 
+
+        <div className="flex items-center space-x-4">
+          <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`inline-flex items-center px-4 py-2 rounded-md text-sm font-medium border
-              ${showFilters 
-                ? 'bg-indigo-50 text-indigo-700 border-indigo-300' 
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+            className={`flex items-center px-3 py-2 border rounded-md ${
+              showFilters ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'border-gray-300 text-gray-700'
+            }`}
           >
-            <Filter className={`h-4 w-4 mr-2 ${showFilters ? 'text-indigo-600' : ''}`} />
+            <Filter className="h-5 w-5 mr-2" />
             Filters
           </button>
+          {selectedHotels.size > 0 && (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={handleMergeClick}
+                disabled={selectedHotels.size < 2}
+                className="flex items-center px-3 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:bg-gray-300"
+              >
+                <ArrowsUpFromLine className="h-5 w-5 mr-2" />
+                Merge ({selectedHotels.size})
+              </button>
+              <button
+                onClick={handleMassDeleteClick}
+                className="flex items-center px-3 py-2 text-white bg-red-600 rounded-md hover:bg-red-700"
+              >
+                <Trash2 className="h-5 w-5 mr-2" />
+                Delete ({selectedHotels.size})
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -405,6 +444,15 @@ export default function Hotels() {
                     </button>
                   </div>
                 </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <button
+                    onClick={() => handleSort('id')}
+                    className="group inline-flex items-center space-x-2"
+                  >
+                    <span>ID</span>
+                    {getSortIcon('id')}
+                  </button>
+                </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider max-w-xs">
                   <button
                     onClick={() => handleSort('name')}
@@ -488,6 +536,9 @@ export default function Hotels() {
                           <Square className="h-5 w-5" />
                         )}
                       </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{hotel.id}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap max-w-xs">
                       <div className="text-sm font-medium text-gray-900 truncate" title={hotel.name}>
@@ -620,6 +671,21 @@ export default function Hotels() {
         title="Delete Multiple Hotels"
         message={`Are you sure you want to delete ${selectedHotels.size} hotels? This action cannot be undone.`}
       />
+
+      {showMergeModal && targetHotel && (
+        <MergeModal
+          isOpen={showMergeModal}
+          onClose={() => {
+            setShowMergeModal(false);
+            setTargetHotel(null);
+            setSelectedHotels(new Set());
+          }}
+          targetHotel={targetHotel}
+          sourceHotels={hotelsData?.data.filter(h => 
+            selectedHotels.has(h.id) && h.id !== targetHotel.id
+          ) || []}
+        />
+      )}
 
       {selectedHotel && (
         <HotelModal
